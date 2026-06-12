@@ -52,9 +52,7 @@
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| PDF 解析 | **豆包 Doubao-Seed-2.0-Pro** (火山方舟 VLM) | pypdfium2 渲染页码→API 逐批提取 Markdown |
-| 备选解析 | **MinerU 3.3** (pipeline) | 保留代码，可选依赖，CPU OCR + 布局 |
-| 图片理解 | **豆包 Doubao-Seed-2.0-Pro** (火山方舟) | 可选，API 接入 |
+| PDF 解析 | **豆包 Doubao-Seed-2.0-Pro** (火山方舟 VLM) | pypdfium2 渲染每页为 PNG → 豆包 VLM API 逐批（3页/批，5路并行）提取 Markdown，替换 MinerU |
 | 嵌入模型 | **BAAI/bge-large-zh-v1.5** | 1024 维，sentence-transformers 本地加载 |
 | 向量库 | **ChromaDB** | 持久化，cosine 距离 |
 | 稀疏检索 | **BM25Okapi** + **jieba** | JSON 词项-文档矩阵持久化 |
