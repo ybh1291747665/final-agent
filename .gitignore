@@ -1,0 +1,45 @@
+﻿# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+
+# Conda
+.python-version
+
+# Environment / secrets
+.env
+*.local
+
+# Data
+data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Skills lock
+skills-lock.json
+
+# Tooling
+.agents/
+.codegraph/
+.reasonix/
+reasonix.toml
+
+# Scratch files
+answer.md
+question.md

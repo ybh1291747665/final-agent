@@ -1,0 +1,40 @@
+[project]
+name = "final-agent"
+version = "0.1.0"
+description = "期末复习 Agent — 支持上传 PDF/Markdown，通过多模态识别 + RAG 知识库生成防幻觉的复习解析"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "chromadb>=0.5.0",
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pypdfium2>=4.0.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "jieba>=0.42",
+    "rank-bm25>=0.2",
+    "sentence-transformers>=3.0.0",
+    "streamlit>=1.35.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+]
+
+[project.optional-dependencies]
+mineru = [
+    "mineru[all]>=3.0.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+final-agent = "final_agent.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]

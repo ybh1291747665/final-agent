@@ -1,0 +1,75 @@
+﻿# final-agent 配置文件
+# 可通过环境变量覆盖（前缀 FINAL_AGENT_）
+
+# --- 模型 ---
+models:
+  llm:
+    provider: deepseek
+    model: deepseek-chat
+    api_key: ${DEEPSEEK_API_KEY:-}
+    base_url: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+    temperature: 0.1
+    max_tokens: 4096
+
+  embedding:
+    model_name: BAAI/bge-large-zh-v1.5
+    device: cpu  # cpu | cuda | mps
+
+  reranker:
+    model_name: BAAI/bge-reranker-v2-m3
+    device: cpu
+
+# --- 分块 ---
+chunking:
+  size: 512
+  overlap: 64
+  separators:
+    - "## "
+    - "### "
+    - "#### "
+
+# --- 检索 ---
+retrieval:
+  top_k: 10
+  similarity_threshold: 0.5
+  min_matches: 3
+  bm25_weight: 0.3
+  dense_weight: 0.7
+  # 深度复习模式
+  review_top_k: 30
+  review_similarity_threshold: 0.3
+  neighbor_expand: 2
+
+# --- 向量库 ---
+vector_store:
+  type: chroma
+  persist_dir: data/vector_db
+  collection_name: final_agent_knowledge
+
+# --- 数据 ---
+data:
+  upload_dir: data/uploads
+  markdown_dir: data/markdown
+  chunks_dir: data/chunks
+  images_dir: data/images
+
+# --- 图片分析 (VLM) ---
+vision:
+  enabled: false
+  provider: volcengine      # volcengine | dashscope | openai
+  model: doubao-seed-2-0-pro-260215
+  api_key: ${ARK_API_KEY:-}
+  base_url: ${ARK_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+  max_images_per_doc: 50
+  prompt: "请详细描述这张图片的内容。如果图片包含文字、公式、图表或数据，请逐一提取并说明。"
+
+  # PDF→Markdown (Doubao API)
+  page_dpi: 200             # PDF 渲染分辨率
+  max_pages: 100            # 单文档最大处理页数
+  pages_per_batch: 3        # 每批发送的页数（利用跨页上下文）
+  concurrent_batches: 5     # 并行调用批次数（加速解析）
+
+# --- 文档总结 ---
+summary:
+  max_chunks_per_batch: 20   # 每次 LLM 调用塞入的 chunk 数上限
+  temperature: 0.3           # 总结模式 LLM 温度
