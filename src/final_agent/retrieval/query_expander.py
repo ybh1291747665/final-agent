@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import re
-
-try:
-    import jieba
-except ModuleNotFoundError:
-    jieba = None
+import warnings
 
 # Minimal synonym dictionary for Chinese academic terms
 _SYNONYMS: dict[str, list[str]] = {
@@ -31,9 +27,17 @@ def expand_query(query: str, max_variants: int = 3) -> list[str]:
     Returns:
         List of query strings, with the original first.
     """
-    if jieba is not None:
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="pkg_resources is deprecated as an API.*",
+                category=UserWarning,
+            )
+            import jieba
+
         tokens = [t.strip() for t in jieba.cut(query) if t.strip()]
-    else:
+    except ModuleNotFoundError:
         tokens = [t for t in re.split(r"\W+", query) if t]
     variants: list[str] = [query]
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -7,7 +8,12 @@ from fastapi import Depends, FastAPI, HTTPException
 from final_agent.agent.graph import run_study_turn
 from final_agent.agent.models import AgentState
 from final_agent.api.schemas import CreateSessionRequest, MasteryResponse, SendMessageRequest, SessionResponse, TraceResponse
+from final_agent.knowledge import bm25_load, chroma_get_all
 from final_agent.memory.repository import MemoryRepository
+from final_agent.settings import load_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class AgentService:
@@ -15,7 +21,14 @@ class AgentService:
         self.repository = repository
 
     def _response(self, state: AgentState) -> SessionResponse:
-        return SessionResponse(session_id=state.session_id, status=state.status, plan=state.plan, quiz=state.quiz, grade=state.grade)
+        return SessionResponse(
+            session_id=state.session_id,
+            status=state.status,
+            plan=state.plan,
+            quiz=state.quiz,
+            grade=state.grade,
+            next_action=state.next_action,
+        )
 
     def create_session(self, payload: CreateSessionRequest) -> SessionResponse:
         state = AgentState(session_id=uuid4().hex, learning_goal=payload.learning_goal, course_ids=payload.course_ids)
@@ -47,10 +60,20 @@ class AgentService:
             raise HTTPException(status_code=404, detail="Unknown session") from exc
 
 
+def _warm_knowledge_cache() -> None:
+    try:
+        settings = load_settings()
+        chunks = chroma_get_all(settings=settings)
+        bm25_load(chunks, settings=settings)
+    except Exception as exc:
+        logger.warning("Study Coach API knowledge warmup skipped: %s", exc)
+
+
 def create_app(repository: MemoryRepository | None = None) -> FastAPI:
     app = FastAPI(title="final-agent Study Coach API")
     repo = repository or MemoryRepository()
     service = AgentService(repo)
+    _warm_knowledge_cache()
 
     def get_service() -> AgentService:
         return service

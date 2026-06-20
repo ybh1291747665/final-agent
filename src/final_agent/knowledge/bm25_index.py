@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from pathlib import Path
 from typing import Optional
 
@@ -42,7 +43,13 @@ def _bm25_index_path(settings: Settings) -> Path:
 
 def _tokenize(text: str) -> list[str]:
     try:
-        import jieba
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="pkg_resources is deprecated as an API.*",
+                category=UserWarning,
+            )
+            import jieba
 
         return [t.strip() for t in jieba.cut(text) if t.strip()]
     except ModuleNotFoundError:

@@ -26,6 +26,7 @@ from final_agent.generation.answer_generator import answer_deep
 from final_agent.generation.summarizer import summarize_document
 from final_agent.settings import load_settings, Settings
 from final_agent.ui.agent_client import AgentApiClient, AgentApiError
+from final_agent.ui.study_coach_view import format_study_coach_summary, format_trace_lines
 
 logger = logging.getLogger(__name__)
 
@@ -684,23 +685,13 @@ if question:
                     else:
                         response = client.send_message(app_state.agent_session_id, question)
 
-                    plan_lines = [
-                        f"- [{ 'x' if step.get('completed') else ' ' }] {step.get('objective', '')} (`{step.get('tool_name', '')}`)"
-                        for step in response.get("plan", [])
-                    ]
-                    quiz = response.get("quiz") or {}
-                    grade = response.get("grade") or {}
-                    content = "\n".join([
-                        f"**Status:** `{response.get('status')}`",
-                        "",
-                        "**Plan:**",
-                        *plan_lines,
-                        "",
-                        f"**Question:** {quiz.get('prompt', '(none)')}",
-                        f"**Grade:** {grade.get('score', 'waiting')}",
-                        grade.get("feedback", ""),
-                    ])
+                    mastery_response = client.get_mastery(app_state.agent_session_id)
+                    trace_response = client.get_trace(app_state.agent_session_id)
+                    content = format_study_coach_summary(response, mastery_response.get("mastery", {}))
                     st.markdown(content)
+                    with st.expander("Study Coach tool trace", expanded=False):
+                        for line in format_trace_lines(trace_response.get("trace", [])):
+                            st.markdown(f"- {line}")
                     app_state._add_message("assistant", content=content)
                 except AgentApiError as e:
                     st.error(f"Study Coach API error: {e}")

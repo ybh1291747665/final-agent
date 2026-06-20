@@ -20,6 +20,7 @@ class SessionResponse(BaseModel):
     plan: list[StudyPlanStep]
     quiz: QuizQuestion | None = None
     grade: GradeResult | None = None
+    next_action: str = ""
 
 
 class MasteryResponse(BaseModel):
