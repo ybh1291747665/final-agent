@@ -253,3 +253,83 @@
 - **Result:** 30 cases；task completion 100%；tool-selection 100%；citation-grounding 66.7%；grading agreement 100%；error rate 0%。
 - **Reworked check:** `ruff check src tests` 因当前 shell PATH 找不到 `ruff` 失败；改用 `python -m ruff check src tests`，结果通过。
 - **Resume impact:** can mention local-course evaluation evidence, but say no live LLM quality claim
+
+### Issue: Study Coach UI 缺少 mastery / next action / tool trace 证据字段
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `src/final_agent/ui/app.py`, `src/final_agent/ui/study_coach_view.py`, `src/final_agent/api/schemas.py`
+- **Symptom:** 手工 demo 前，Study Coach 模式只显示 status、plan、question、grade，和 guide 里要求的 mastery visibility、next action、tool trace visibility 不完全一致。
+- **Root cause:** Session API 未显式返回 `next_action`，UI 也没有继续请求 mastery/trace；同时 `ui/app.py` 导入即执行整页 Streamlit，直接在该文件上做渲染单测会把测试和页面生命周期绑死。
+- **Options considered:**
+  - Option A: 保持现状，在 evidence 文档里解释 UI 省略这些字段。
+  - Option B: 先补齐 API 和 UI 可见性，再录 demo；纯渲染逻辑抽到独立 helper 模块以保持测试干净。
+- **Decision:** 选择 Option B。先让产品表面和证据承诺对齐，再做手工 walkthrough。
+- **Fix:** `SessionResponse` 新增 `next_action`；Study Coach UI 额外读取 `/mastery` 和 `/trace`；新增 `ui/study_coach_view.py` 承载纯格式化逻辑并展示 mastery、next action、ordered tool trace。
+- **Verification:** `$env:PYTHONPATH='src'; pytest tests/api/test_sessions.py tests/ui/test_study_coach_rendering.py tests/ui/test_agent_client.py -v`
+- **Result:** Study Coach 界面和 session contract 已能承载手工证据路径。
+- **Resume impact:** none
+
+### Issue: FastAPI/Starlette Study Coach API 测试存在第三方弃用 warning
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `tests/api/test_sessions.py`
+- **Symptom:** `pytest tests/api tests/ui -q -W default` 输出 `StarletteDeprecationWarning`，影响 Draft PR review cleanliness。
+- **Root cause:** API 合同测试依赖 `fastapi.testclient.TestClient`，其底层 `starlette.testclient` + `httpx` 组合已被上游标记为弃用。
+- **Options considered:**
+  - Option A: 在 evidence 文档中接受 warning，并说明它来自第三方。
+  - Option B: 改用 `httpx` ASGI transport，保留同样的 API contract 覆盖，同时清掉 warning。
+- **Decision:** 选择 Option B，优先清理可避免的 review 噪音。
+- **Fix:** `tests/api/test_sessions.py` 改成基于 `httpx.AsyncClient` + `httpx.ASGITransport` 的异步合同测试。
+- **Verification:** `$env:PYTHONPATH='src'; pytest tests/api/test_sessions.py -q -W default`
+- **Result:** 测试通过，warning 消失。
+- **Resume impact:** none
+
+### Issue: 手工 Study Coach demo 初次运行时检索链无法形成 happy path
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `conda` environment `final-agent`, `src/final_agent/api/app.py`
+- **Symptom:** 初次用 `AgentService` 手工录制 evidence 时，`search_course_material` 先后报缺少 runtime 依赖和 `BM25 index not loaded. Call load_index() first.`，导致 trace 中检索步骤不是成功状态。
+- **Root cause:** 当前机器未在专用环境中安装项目依赖；补齐依赖后又发现 Streamlit 会预热知识层缓存，但 FastAPI `create_app()` 没有对应的 BM25 warmup。
+- **Options considered:**
+  - Option A: 直接把失败 trace 写进 evidence 文档，并把它解释成环境限制。
+  - Option B: 按 README 的标准安装路径，在 `conda` 环境中补齐依赖，并修复 FastAPI 启动时的知识层预热。
+- **Decision:** 选择 Option B，优先让手工证据路径变成真实 happy path。
+- **Fix:** 在 `conda` 环境 `final-agent` 中执行 `conda run -n final-agent python -m pip install -e ".[dev]"`；新增 FastAPI knowledge warmup，在 `create_app()` 时加载 Chroma chunks 并恢复 BM25 缓存。
+- **Verification:** `conda run --no-capture-output -n final-agent python <api demo script>`；观察 `search_course_material` trace `ok=True` 且 `next_action=practice_variant`。
+- **Result:** 本地 `FastAPI -> workflow -> SQLite` 证据路径跑通。安装过程中 `pip` 报出一条现有环境里的 `aiobotocore`/`botocore` 兼容性 warning，但未阻断 `final-agent` 环境安装。
+- **Resume impact:** none
+
+### Issue: 安装完整依赖后 API 测试出现新的 `jieba/pkg_resources` 第三方 warning
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `src/final_agent/retrieval/query_expander.py`, `src/final_agent/knowledge/bm25_index.py`, `tests/retrieval/test_query_expander.py`
+- **Symptom:** 在 `conda` 环境里跑 API 合同测试时，Starlette warning 已消失，但新的 warnings summary 显示 `jieba._compat` 发出的 `pkg_resources is deprecated as an API`。
+- **Root cause:** `query_expander` 和 BM25 tokenization 在导入/首次调用 `jieba` 时会触发上游包的兼容层 warning。
+- **Options considered:**
+  - Option A: 在 pytest 配置里全局忽略这个 warning。
+  - Option B: 保持测试和运行日志安静，在自家 `jieba` 接入点做定点惰性导入和 warning 抑制。
+- **Decision:** 选择 Option B，避免把 review cleanliness 建立在全局忽略规则上。
+- **Fix:** `query_expander` 改为运行时惰性导入 `jieba`；`query_expander` 和 `bm25_index` 的 `jieba` 接入点都加入定点 warning 抑制；新增回归测试确保导入和调用路径不再冒出该 warning。
+- **Verification:** `conda run -n final-agent python -m pytest tests/retrieval/test_query_expander.py -v`；`conda run -n final-agent python -m pytest tests/api/test_sessions.py -q -W default`
+- **Result:** API 合同测试和 query expander 回归测试通过，相关 warnings summary 清空。
+- **Resume impact:** none
+
+### Issue: Study Coach final evidence package 收口
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `README.md`, `DESIGN.md`, `docs/final-agent-study-coach-demo-evidence.md`
+- **Symptom:** 仓库已有 bounded workflow 和离线评测，但缺少一条可复现的手工 walkthrough、示例 mastery 结果、ordered trace 与可直接讲解的 demo script。
+- **Root cause:** 之前的工作优先把实现和 deterministic evaluation 做完，文档层的演示证据没有单独整理。
+- **Options considered:**
+  - Option A: 只在 README 里追加长段说明。
+  - Option B: README 保持高层摘要，详细 walkthrough 单独放到 `docs/final-agent-study-coach-demo-evidence.md`。
+- **Decision:** 选择 Option B，形成 README + 独立 evidence note 的双层发布结构。
+- **Fix:** 新增独立 demo evidence 文档，记录 `POST /sessions`、`POST /messages`、`GET /mastery`、`GET /trace` 的关键输出、happy path 步骤、限制说明和 90 秒 demo script；同步更新 README 和 DESIGN。
+- **Verification:** 人工核对文档中的 payload、trace 顺序、mastery 分数、`practice_variant` 与实际 API demo 输出一致。
+- **Result:** Draft PR 具备清晰、可复现、口径克制的手工证据路径。
+- **Resume impact:** can mention bounded workflow evidence, still no live LLM quality claim

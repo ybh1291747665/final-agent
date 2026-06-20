@@ -96,6 +96,10 @@ Measured local Markdown results:
 
 These are deterministic local-harness results, not live model quality claims. Citation grounding is measured by lexical matching against local Markdown chunks; generation, reranking, and model-backed answer quality are outside this report.
 
+## Evidence
+
+Manual Study Coach evidence now lives in [docs/final-agent-study-coach-demo-evidence.md](/E:/githubitem/final-agent/docs/final-agent-study-coach-demo-evidence.md). It captures one reproducible `Streamlit -> FastAPI -> workflow -> SQLite` happy path, including the observed session state, mastery update, ordered tool trace, and a 90-second demo script.
+
 ## Verification
 
 ```bash

@@ -6,6 +6,32 @@
 
 The first release intentionally favors a complete, testable learning loop over broad autonomy.
 
+## Current Status
+
+Implemented and verified in the current branch:
+
+- Bounded LangGraph study workflow with typed tool contracts.
+- SQLite learner memory and ordered tool-trace persistence.
+- FastAPI session API for study coach runs.
+- Streamlit Study Coach mode layered on top of the existing RAG UI.
+- Deterministic evaluation harness with baseline and `agent-final` reports.
+- Local-course `agent-final` evaluation that reads `data/markdown`, reuses the page-aware chunker, and runs the workflow through a deterministic local search adapter.
+
+Latest measured evidence:
+
+- `pytest tests/test_schemas.py tests/retrieval tests/ingestion tests/evaluation tests/agent tests/memory tests/api tests/ui -q`: 31 passed.
+- `python -m ruff check src tests`: passed.
+- `pytest --cov=final_agent --cov-report=term-missing`: 31 passed, 44% total coverage.
+- `data/evaluation/agent-final.json`: 30 cases, 100% task completion, 100% tool-selection accuracy, 66.7% citation grounding, 100% grading agreement, 0% error rate.
+- `docs/final-agent-study-coach-demo-evidence.md`: manual `FastAPI -> workflow -> SQLite` Study Coach walkthrough with example mastery and ordered tool trace.
+
+What this evidence means:
+
+- The bounded study-coach loop is implemented and testable offline.
+- The final evaluation uses real local Markdown chunks when available.
+- The manual evidence package proves the API/UI workflow can pause, resume, persist mastery, and surface tool traces in a reproducible local environment.
+- The evaluation and manual demo do not yet prove live LLM quality, production retrieval quality, or end-user polish.
+
 ## Existing Knowledge Layer
 
 ```text
@@ -139,6 +165,15 @@ Measured local Markdown results:
 | Error rate | 0% |
 
 These values prove the deterministic harness, local course ingestion path, and agent tool contracts, not live model accuracy. Citation grounding is currently lexical against local Markdown chunks through the evaluation adapter, so it is useful as a repeatable regression signal but not as a production retrieval or generation benchmark.
+
+## Next Work
+
+Recommended next steps after the current evidence package:
+
+1. Replace deterministic quiz generation with a live adapter while keeping the current offline baseline.
+2. Replace deterministic grading with a live adapter while keeping regression coverage.
+3. Persist retrieved context in agent state so future live quiz/grading stays grounded in course material.
+4. Keep the project title as `RAG-Powered Study Assistant` until live model-backed evidence is produced.
 
 ## Deferred Scope
 
