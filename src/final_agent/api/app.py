@@ -7,6 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException
 
 from final_agent.agent.graph import run_study_turn
 from final_agent.agent.models import AgentState
+from final_agent.agent.quiz_generators import DeterministicQuizGenerator
 from final_agent.api.schemas import CreateSessionRequest, MasteryResponse, SendMessageRequest, SessionResponse, TraceResponse
 from final_agent.knowledge import bm25_load, chroma_get_all
 from final_agent.memory.repository import MemoryRepository
@@ -17,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class AgentService:
-    def __init__(self, repository: MemoryRepository):
+    def __init__(self, repository: MemoryRepository, quiz_generator=None):
         self.repository = repository
+        self.quiz_generator = quiz_generator or DeterministicQuizGenerator()
 
     def _response(self, state: AgentState) -> SessionResponse:
         return SessionResponse(
@@ -32,7 +34,7 @@ class AgentService:
 
     def create_session(self, payload: CreateSessionRequest) -> SessionResponse:
         state = AgentState(session_id=uuid4().hex, learning_goal=payload.learning_goal, course_ids=payload.course_ids)
-        state = run_study_turn(state, repository=self.repository)
+        state = run_study_turn(state, repository=self.repository, quiz_generator=self.quiz_generator)
         self.repository.create_session(state)
         for trace in state.tool_trace:
             self.repository.append_trace(state.session_id, trace)
@@ -47,7 +49,7 @@ class AgentService:
             raise HTTPException(status_code=409, detail="Session is not waiting for an answer")
         state.learner_answer = message
         before = len(state.tool_trace)
-        state = run_study_turn(state, repository=self.repository)
+        state = run_study_turn(state, repository=self.repository, quiz_generator=self.quiz_generator)
         self.repository.save_session(state)
         for trace in state.tool_trace[before:]:
             self.repository.append_trace(state.session_id, trace)
@@ -69,10 +71,10 @@ def _warm_knowledge_cache() -> None:
         logger.warning("Study Coach API knowledge warmup skipped: %s", exc)
 
 
-def create_app(repository: MemoryRepository | None = None) -> FastAPI:
+def create_app(repository: MemoryRepository | None = None, quiz_generator=None) -> FastAPI:
     app = FastAPI(title="final-agent Study Coach API")
     repo = repository or MemoryRepository()
-    service = AgentService(repo)
+    service = AgentService(repo, quiz_generator=quiz_generator)
     _warm_knowledge_cache()
 
     def get_service() -> AgentService:

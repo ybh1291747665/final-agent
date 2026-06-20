@@ -58,3 +58,30 @@ def test_graph_module_exposes_required_node_functions():
     ]
 
     assert all(callable(getattr(graph, name, None)) for name in required)
+
+
+def test_graph_uses_injected_quiz_generator():
+    from final_agent.agent.graph import run_study_turn
+    from final_agent.agent.models import AgentState, QuizQuestion
+
+    class FakeGenerator:
+        def generate_with_meta(self, topic, course_ids=None, count=1):
+            return (
+                QuizQuestion(
+                    question_id="quiz-injected",
+                    topic=topic,
+                    prompt="Injected prompt",
+                    expected_points=["adapter"],
+                    difficulty="hard",
+                ),
+                type("Meta", (), {"implementation": "llm", "fallback_reason": ""})(),
+            )
+
+        def generate(self, topic, course_ids=None, count=1):
+            raise AssertionError("graph should use generate_with_meta for observability")
+
+    state = run_study_turn(AgentState(session_id="s1", learning_goal="review CI"), quiz_generator=FakeGenerator())
+
+    assert state.quiz is not None
+    assert state.quiz.prompt == "Injected prompt"
+    assert "impl=llm" in state.tool_trace[-1].input_summary

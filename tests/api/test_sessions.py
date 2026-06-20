@@ -89,3 +89,23 @@ def test_create_app_preloads_knowledge(tmp_path, monkeypatch):
     assert calls["chunks"] == ["chunk-a", "chunk-b"]
     assert calls["get_all_settings"] is not None
     assert calls["load_settings"] is not None
+
+
+def test_agent_service_passes_quiz_generator_to_workflow(tmp_path, monkeypatch):
+    from final_agent.api.app import AgentService
+    from final_agent.api.schemas import CreateSessionRequest
+    from final_agent.memory.repository import MemoryRepository
+
+    calls = {}
+
+    def fake_run_study_turn(state, repository=None, quiz_generator=None):
+        calls["quiz_generator"] = quiz_generator
+        state.status = "waiting_for_answer"
+        return state
+
+    monkeypatch.setattr("final_agent.api.app.run_study_turn", fake_run_study_turn)
+
+    service = AgentService(MemoryRepository(tmp_path / "api.sqlite"), quiz_generator=object())
+    service.create_session(CreateSessionRequest(learning_goal="review CI", course_ids=[]))
+
+    assert calls["quiz_generator"] is service.quiz_generator

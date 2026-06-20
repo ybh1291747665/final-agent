@@ -333,3 +333,21 @@
 - **Verification:** 人工核对文档中的 payload、trace 顺序、mastery 分数、`practice_variant` 与实际 API demo 输出一致。
 - **Result:** Draft PR 具备清晰、可复现、口径克制的手工证据路径。
 - **Resume impact:** can mention bounded workflow evidence, still no live LLM quality claim
+
+### Issue: Quiz generator adapter 需要可注入实现而不是隐藏全局状态
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `src/final_agent/agent/quiz_generators.py`, `src/final_agent/agent/graph.py`, `src/final_agent/api/app.py`
+- **Symptom:** `generate_quiz` 之前把 deterministic 规则写死在 tool 里，后续要接 LLM 版本时，没有明确的 adapter 边界，也没有启动时组装点。
+- **Root cause:** 第一版 Study Coach 先追求最小可跑通 workflow，把 quiz 生成直接内联进 tool，导致实现选择只能靠修改函数体本身。
+- **Options considered:**
+  - Option A: 在 `tools.py` 或 `graph.py` 里读全局默认实现，调用方无感知，接线最省事。
+  - Option B: 新增 quiz generator adapter，并在 app/service 注入层显式组装，再一路传到 workflow。
+- **Decision:** 选择 Option B。默认实现暂时仍是 deterministic，但边界已经固定为可注入 adapter。
+- **Fix:** 新增 `DeterministicQuizGenerator` 和 `LlmQuizGenerator`；`generate_quiz` 改为委托注入对象；`run_study_turn` 和 `AgentService` 接收 `quiz_generator`；`create_app()` 在启动时完成默认组装。
+- **Fallback policy:** LLM 调用、JSON 解析或 `QuizQuestion` 校验失败时，不让 workflow 失败，而是在 adapter 内部回退到 deterministic；graph trace 通过 `impl=...` 和 `error/fallback_reason` 暴露该事实。
+- **Why not global default state:** 这样部署后要切换实现时，只需要在启动装配层替换 generator，不用改 workflow 代码，也更容易做测试注入。
+- **Verification:** `conda run -n final-agent python -m pytest tests/agent/test_quiz_generators.py tests/agent/test_tools.py tests/agent/test_graph.py tests/api/test_sessions.py -v`
+- **Result:** adapter 边界、fallback 语义和 app-level assembly 都有回归测试保护。
+- **Resume impact:** can mention explicit adapter injection and deterministic fallback policy

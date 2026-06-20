@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from final_agent.agent.models import GradeResult, QuizQuestion, ToolResult
+from final_agent.agent.models import GradeResult, ToolResult
+from final_agent.agent.quiz_generators import DeterministicQuizGenerator
 from final_agent.retrieval import pipeline as retrieval_pipeline
 
 
@@ -49,18 +49,15 @@ def summarize_course(doc_id: str, mode: str = "key_points") -> ToolResult:
     return run_tool(_op)
 
 
-def generate_quiz(topic: str, course_ids: list[str] | None = None, count: int = 1) -> ToolResult:
-    def _op() -> QuizQuestion:
-        points = [word for word in re.findall(r"[A-Za-z0-9\u4e00-\u9fff]+", topic.lower()) if len(word) > 2]
-        expected_points = points[:3] or [topic.lower()]
-        return QuizQuestion(
-            question_id=f"quiz-{abs(hash((topic, count))) % 100000}",
-            topic=topic,
-            prompt=f"Explain {topic} and mention: {', '.join(expected_points)}.",
-            expected_points=expected_points,
-        )
-
-    return run_tool(_op)
+def generate_quiz(
+    topic: str,
+    course_ids: list[str] | None = None,
+    count: int = 1,
+    *,
+    quiz_generator=None,
+) -> ToolResult:
+    generator = quiz_generator or DeterministicQuizGenerator()
+    return run_tool(lambda: generator.generate(topic, course_ids or [], count))
 
 
 def grade_answer(question: str, expected_points: list[str], learner_answer: str) -> ToolResult:

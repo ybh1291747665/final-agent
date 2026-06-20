@@ -4,7 +4,8 @@ from uuid import uuid4
 
 from final_agent.agent.mastery import choose_learning_action
 from final_agent.agent.models import AgentState, QuizQuestion, StudyPlanStep, ToolTraceEntry
-from final_agent.agent.tools import TOOL_REGISTRY, generate_quiz, grade_answer, search_course_material, update_mastery
+from final_agent.agent.quiz_generators import DeterministicQuizGenerator
+from final_agent.agent.tools import TOOL_REGISTRY, generate_quiz, grade_answer, run_tool, search_course_material, update_mastery
 
 
 MAX_TOOL_CALLS = 6
@@ -66,10 +67,17 @@ def finish(state: dict) -> dict:
     return state
 
 
-def _append_trace(state: AgentState, tool_name: str, ok: bool, elapsed_ms: int, error: str = "") -> None:
+def _append_trace(
+    state: AgentState,
+    tool_name: str,
+    ok: bool,
+    elapsed_ms: int,
+    error: str = "",
+    input_summary: str | None = None,
+) -> None:
     state.tool_trace.append(ToolTraceEntry(
         tool_name=tool_name,
-        input_summary=state.learning_goal[:80],
+        input_summary=input_summary or state.learning_goal[:80],
         ok=ok,
         elapsed_ms=elapsed_ms,
         error=error,
@@ -78,11 +86,12 @@ def _append_trace(state: AgentState, tool_name: str, ok: bool, elapsed_ms: int, 
     state.tool_call_count += 1
 
 
-def run_study_turn(state: AgentState, repository=None) -> AgentState:
+def run_study_turn(state: AgentState, repository=None, quiz_generator=None) -> AgentState:
     if state.tool_call_count >= MAX_TOOL_CALLS:
         state.status = "failed"
         return state
 
+    quiz_generator = quiz_generator or DeterministicQuizGenerator()
     state = create_plan(state)
     for step in state.plan:
         if step.tool_name not in TOOL_REGISTRY:
@@ -94,12 +103,32 @@ def run_study_turn(state: AgentState, repository=None) -> AgentState:
         state.status = "running"
         search_result = search_course_material(state.learning_goal, state.course_ids, 5)
         _append_trace(state, "search_course_material", search_result.ok, search_result.elapsed_ms, search_result.error)
-        quiz_result = generate_quiz(state.learning_goal, state.course_ids, 1)
-        _append_trace(state, "generate_quiz", quiz_result.ok, quiz_result.elapsed_ms, quiz_result.error)
+        quiz_meta = None
+        if hasattr(quiz_generator, "generate_with_meta"):
+            quiz_result = run_tool(lambda: quiz_generator.generate_with_meta(state.learning_goal, state.course_ids, 1))
+            if quiz_result.ok:
+                state.quiz, quiz_meta = quiz_result.value
+        else:
+            quiz_result = generate_quiz(state.learning_goal, state.course_ids, 1, quiz_generator=quiz_generator)
+            if quiz_result.ok:
+                state.quiz = quiz_result.value
+        _append_trace(
+            state,
+            "generate_quiz",
+            quiz_result.ok,
+            quiz_result.elapsed_ms,
+            quiz_meta.fallback_reason if quiz_meta else quiz_result.error,
+            input_summary=(
+                f"{state.learning_goal[:60]} | impl={quiz_meta.implementation}"
+                if quiz_meta
+                else state.learning_goal[:80]
+            ),
+        )
         if not quiz_result.ok:
             state.status = "failed"
             return state
-        state.quiz = quiz_result.value
+        if state.quiz is None:
+            state.quiz = quiz_result.value
         state.status = "waiting_for_answer"
         return state
 
