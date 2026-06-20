@@ -7,9 +7,25 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import jieba
 import numpy as np
-from rank_bm25 import BM25Okapi
+try:
+    from rank_bm25 import BM25Okapi
+except ModuleNotFoundError:
+    class BM25Okapi:  # type: ignore[no-redef]
+        def __init__(self, tokenized: list[list[str]]):
+            self.corpus = tokenized
+            self.corpus_size = len(tokenized)
+            self.doc_len = [len(doc) for doc in tokenized]
+            self.doc_freqs = []
+            self.idf = {}
+            self.avgdl = sum(self.doc_len) / len(self.doc_len) if self.doc_len else 0
+            self.k1 = 1.5
+            self.b = 0.75
+            self.epsilon = 0.25
+
+        def get_scores(self, tokens: list[str]) -> np.ndarray:
+            token_set = set(tokens)
+            return np.array([sum(1 for token in doc if token in token_set) for doc in self.corpus], dtype=float)
 
 from final_agent.schemas import Chunk
 from final_agent.settings import Settings, load_settings
@@ -25,7 +41,14 @@ def _bm25_index_path(settings: Settings) -> Path:
 
 
 def _tokenize(text: str) -> list[str]:
-    return [t.strip() for t in jieba.cut(text) if t.strip()]
+    try:
+        import jieba
+
+        return [t.strip() for t in jieba.cut(text) if t.strip()]
+    except ModuleNotFoundError:
+        import re
+
+        return [t for t in re.split(r"\W+", text.lower()) if t]
 
 
 def build_index(

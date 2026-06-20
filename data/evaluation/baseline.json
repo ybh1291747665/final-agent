@@ -1,0 +1,575 @@
+{
+  "suite": "baseline",
+  "summary": {
+    "total_cases": 30,
+    "task_completion_rate": 1.0,
+    "tool_selection_accuracy": 1.0,
+    "citation_grounding_rate": 1.0,
+    "grading_agreement": 1.0,
+    "mean_latency_ms": 0,
+    "p95_latency_ms": 0,
+    "error_rate": 0.0
+  },
+  "results": [
+    {
+      "case_id": "retrieval-01",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-01"
+      ],
+      "actual_citations": [
+        "fixture-01"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-02",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-02"
+      ],
+      "actual_citations": [
+        "fixture-02"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-03",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-03"
+      ],
+      "actual_citations": [
+        "fixture-03"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-04",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-04"
+      ],
+      "actual_citations": [
+        "fixture-04"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-05",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-05"
+      ],
+      "actual_citations": [
+        "fixture-05"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-06",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-06"
+      ],
+      "actual_citations": [
+        "fixture-06"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-07",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-07"
+      ],
+      "actual_citations": [
+        "fixture-07"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-08",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-08"
+      ],
+      "actual_citations": [
+        "fixture-08"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-09",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-09"
+      ],
+      "actual_citations": [
+        "fixture-09"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "retrieval-10",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material"
+      ],
+      "actual_tools": [
+        "search_course_material"
+      ],
+      "required_citations": [
+        "fixture-10"
+      ],
+      "actual_citations": [
+        "fixture-10"
+      ],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-01",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-02",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-03",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-04",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-05",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-06",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-07",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-08",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-09",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "tool-10",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": null,
+      "actual_score": null,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-01",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "high",
+      "actual_score": 0.8,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-02",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "medium",
+      "actual_score": 0.6,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-03",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "high",
+      "actual_score": 0.8,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-04",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "medium",
+      "actual_score": 0.6,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-05",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "high",
+      "actual_score": 0.8,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-06",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "medium",
+      "actual_score": 0.6,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-07",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "high",
+      "actual_score": 0.8,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-08",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "medium",
+      "actual_score": 0.6,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-09",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "high",
+      "actual_score": 0.8,
+      "elapsed_ms": 0,
+      "error": ""
+    },
+    {
+      "case_id": "adaptive-10",
+      "completed": true,
+      "expected_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [],
+      "actual_citations": [],
+      "expected_score_band": "medium",
+      "actual_score": 0.6,
+      "elapsed_ms": 0,
+      "error": ""
+    }
+  ]
+}

@@ -6,20 +6,25 @@ import logging
 from typing import Optional
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+except ModuleNotFoundError:
+    SentenceTransformer = None  # type: ignore[assignment]
 
 from final_agent.schemas import Chunk
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
 
-_EMBEDDER_CACHE: Optional[SentenceTransformer] = None
+_EMBEDDER_CACHE: Optional["SentenceTransformer"] = None
 _EMBEDDER_MODEL_NAME: Optional[str] = None
 
 
-def _get_model(settings: Settings) -> SentenceTransformer:
+def _get_model(settings: Settings):
     """Load (or reuse) the embedding model."""
     global _EMBEDDER_CACHE, _EMBEDDER_MODEL_NAME
+    if SentenceTransformer is None:
+        raise RuntimeError("sentence-transformers is not installed; install project dependencies to embed text.")
     model_name = settings.models_embedding.model_name
     device = settings.models_embedding.device
     if _EMBEDDER_CACHE is not None and _EMBEDDER_MODEL_NAME == model_name:

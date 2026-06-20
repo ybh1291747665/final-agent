@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from final_agent.knowledge.bm25_index import build_index as build_bm25, get_cached_chunks
 from final_agent.knowledge.embedder import embed_chunks

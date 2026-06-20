@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-import jieba
+import re
+
+try:
+    import jieba
+except ModuleNotFoundError:
+    jieba = None
 
 # Minimal synonym dictionary for Chinese academic terms
 _SYNONYMS: dict[str, list[str]] = {
@@ -26,7 +31,10 @@ def expand_query(query: str, max_variants: int = 3) -> list[str]:
     Returns:
         List of query strings, with the original first.
     """
-    tokens = [t.strip() for t in jieba.cut(query) if t.strip()]
+    if jieba is not None:
+        tokens = [t.strip() for t in jieba.cut(query) if t.strip()]
+    else:
+        tokens = [t for t in re.split(r"\W+", query) if t]
     variants: list[str] = [query]
 
     for token in tokens:

@@ -8,7 +8,6 @@ context window.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from final_agent.generation.llm_client import generate as llm_generate
 from final_agent.generation.prompts import (
@@ -35,6 +34,7 @@ def summarize_document(
     *,
     max_chunks_per_batch: int = 20,
     temperature: float = 0.3,
+    model: str | None = None,
 ) -> str:
     """Walk through all chunks of *doc_id* and produce a structured summary.
 
@@ -44,6 +44,7 @@ def summarize_document(
         settings: Application settings.
         max_chunks_per_batch: Chunks per LLM call (controls context window).
         temperature: LLM temperature for summary generation.
+        model: Override model name (e.g. deepseek-v4-flash / deepseek-v4-pro).
 
     Returns:
         Concatenated summary text.
@@ -57,11 +58,11 @@ def summarize_document(
         return f"(文档 {doc_id} 没有内容)"
 
     if mode == "page_by_page":
-        return _summarize_by_page(all_chunks, settings, max_chunks_per_batch, temperature)
+        return _summarize_by_page(all_chunks, settings, max_chunks_per_batch, temperature, model)
     elif mode == "full_summary":
-        return _summarize_full(all_chunks, settings, max_chunks_per_batch, temperature, FULL_SUMMARY_PROMPT)
+        return _summarize_full(all_chunks, settings, max_chunks_per_batch, temperature, FULL_SUMMARY_PROMPT, model)
     elif mode == "key_points":
-        return _summarize_full(all_chunks, settings, max_chunks_per_batch, temperature, KEY_POINTS_PROMPT)
+        return _summarize_full(all_chunks, settings, max_chunks_per_batch, temperature, KEY_POINTS_PROMPT, model)
     else:
         raise ValueError(f"Unknown summary mode: {mode}. Use page_by_page, full_summary, or key_points.")
 
@@ -92,6 +93,7 @@ def _summarize_by_page(
     settings: Settings,
     max_chunks_per_batch: int,
     temperature: float,
+    model: str | None = None,
 ) -> str:
     """Group chunks by page_num and summarize each page."""
     # Group by page_num
@@ -114,6 +116,7 @@ def _summarize_by_page(
                 [{"role": "user", "content": prompt}],
                 settings=settings,
                 temperature=temperature,
+                model=model,
             )
             parts.append(f"## 第 {pn} 页\n\n{raw}")
         except Exception as e:
@@ -129,6 +132,7 @@ def _summarize_full(
     max_chunks_per_batch: int,
     temperature: float,
     prompt_template: str,
+    model: str | None = None,
 ) -> str:
     """Batch all chunks (sorted by char_start) and call LLM for each batch."""
     chunks_sorted = sorted(chunks, key=lambda c: c.char_start)
@@ -148,6 +152,7 @@ def _summarize_full(
                 [{"role": "user", "content": prompt}],
                 settings=settings,
                 temperature=temperature,
+                model=model,
             )
             parts.append(raw)
         except Exception as e:

@@ -18,7 +18,10 @@ venv/
 *.local
 
 # Data
-data/
+data/*
+!data/evaluation/
+!data/evaluation/*.json
+src/data/
 
 # IDE
 .vscode/

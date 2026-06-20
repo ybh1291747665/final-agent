@@ -163,3 +163,76 @@
 
 - `retrieval` 段新增 `review_top_k` / `review_similarity_threshold` / `neighbor_expand`
 - 后续可加 `summary` 段（`max_chunks_per_batch`、`temperature`）
+
+## Phase 9 — Flash/Pro 按模式切换 + 幻觉饼图
+
+### 决策：五种模式各自独立选择 DeepSeek 模型
+
+- **决策原因**: 不同复习场景对生成质量/速度/成本的需求不同。QA 需要精准（Pro），总结可以省钱加速（Flash）。如果全局统一切换，用户每次切换模式还要记得手动换模型；按模式独立记忆更符合直觉
+- **两种模型**:
+  - `deepseek-v4-flash` — 轻量快速，适合总结、逐页输出
+  - `deepseek-v4-pro` — 高精度推理，适合复杂问答、跨文档对比
+- **UI**: 检索设置区「模  式」下拉框下方新增 `⚡ 模型选择` radio（横向排列 Flash / Pro），切换模式时 radio 自动反映该模式的当前选择
+- **持久化**: 存入 `conversations.json` 的 `model_prefs` 字段，重启不丢失；默认全部为 Flash
+- **传递路径**: `app.py` → `answer_question()` / `answer_deep()` / `summarize_document()` → `llm_client.generate()` 的 `model=` 参数
+- **修改文件**: `ui/app.py`（AppState + radio + 传参）、`answer_generator.py`（`answer_question` / `answer_deep` 加 `model` kwarg）、`summarizer.py`（`summarize_document` / `_summarize_by_page` / `_summarize_full` 加 `model` kwarg）
+- **为何不用 .env 或 config.yaml**: 这是 UI 运行时偏好而非环境配置；与 `course_id`/`query_mode` 同属会话级 UI 状态，放 `conversations.json` 一文件管理
+
+### 决策：侧边栏幻觉校验饼图
+
+- **决策原因**: 主区域已有逐句 ✅/⚠️ 详情，但用户需要一个"宏观视角"一眼看到当前会话的整体幻觉率。饼图直观展示比例，切换对话即切换统计范围（对话级统计而非全局）
+- **数据来源**: 遍历当前对话 `history` 中所有 assistant 消息的 `flags` 字段，汇总 `flagged==True`（疑似）和 `flagged==False`（通过）
+- **渲染**: matplotlib `pie()`，绿色 ✅通过 / 红色 ⚠️疑似；全部通过时只显示绿色扇区
+- **交互**: 放在对话列表下、检索设置上的 `📊 幻觉统计` expander，默认展开
+- **空态**: 当前对话无校验数据时显示「📭 当前对话暂无校验数据」
+- **统计范围为何是当前对话而非全局**: 不同对话可能对应不同课程，幻觉率差异大；全局混合失去诊断意义。用户可通过切换对话查看各门课的幻觉表现
+
+## Phase 10 — Adaptive Study Coach Agent
+
+### Issue: Phase 0 盘点与单 Agent 路线确认
+
+- **Date:** 2026-06-20
+- **Status:** resolved
+- **Where:** `final-agent-ai-worker-guide.md`, `docs/superpowers/plans/2026-06-13-adaptive-study-coach-agent.md`
+- **Symptom:** 需要把项目从 RAG 复习助手升级为可测试的自适应学习 Coach，同时当前 worktree 已有未提交改动。
+- **Root cause:** Agent 改造计划跨度大，必须先保留现有 RAG 层和未提交工作，避免直接重写。
+- **Options considered:**
+  - Option A: 直接重写为完整 Agent，速度快但容易破坏现有 RAG。
+  - Option B: 保留 RAG 知识层，在外层增加一个有边界的单 Agent 工作流，测试更稳定。
+- **Decision:** 选择 Option B。第一版不做多 Agent，使用确定性 planner、typed tools、SQLite memory 和 FastAPI sessions。
+- **Fix:** 新增 `agent/`, `memory/`, `api/`, `evaluation/` 模块和离线测试；保留原有 ingestion/retrieval/generation/UI 结构。
+- **Verification:** `pytest tests/test_schemas.py tests/retrieval tests/ingestion tests/evaluation tests/agent tests/memory tests/api tests/ui -q`
+- **Result:** 22 passed，存在 FastAPI/httpx 第三方弃用警告。
+- **Resume impact:** can mention after measured
+
+### Issue: 离线测试被重依赖导入阻塞
+
+- **Date:** 2026-06-20
+- **Status:** resolved
+- **Where:** `bm25_index.py`, `query_expander.py`, `vector_store.py`, `embedder.py`, `reranker.py`, `guard.py`
+- **Symptom:** 新增测试首次运行时缺少 `jieba`, `rank_bm25`, `chromadb`, `sentence_transformers` 导致 import 阶段失败。
+- **Root cause:** 旧知识层在模块顶层直接导入重依赖，不符合“单元测试不要求模型下载/外部服务”的计划约束。
+- **Options considered:**
+  - Option A: 在测试环境安装所有依赖，接近真实运行但慢且脆弱。
+  - Option B: 对重依赖做惰性导入或轻量 fallback，让测试只覆盖当前层逻辑。
+- **Decision:** 选择 Option B。真实 embedding/vector/rerank 功能在调用时仍要求安装依赖，离线测试不触发。
+- **Fix:** 为 BM25/query expansion 增加轻量分词 fallback；为 Chroma、embedding、reranker、hallucination guard 增加缺依赖时的延迟 RuntimeError。
+- **Verification:** `pytest tests/test_schemas.py tests/retrieval tests/ingestion tests/evaluation tests/agent tests/memory tests/api tests/ui -q`
+- **Result:** 22 passed。
+- **Resume impact:** none
+
+### Issue: evaluation runner 命令首次找不到包
+
+- **Date:** 2026-06-20
+- **Status:** resolved
+- **Where:** `python -m final_agent.evaluation.runner --suite baseline`
+- **Symptom:** `ModuleNotFoundError: No module named 'final_agent'`。
+- **Root cause:** 当前 shell 没有执行 editable install，也没有设置 `PYTHONPATH=src`。
+- **Options considered:**
+  - Option A: 立即运行 `pip install -e ".[dev]"`，更贴近用户安装路径但会改动本机环境。
+  - Option B: 使用 `$env:PYTHONPATH='src'` 复跑，适合当前工作区验证。
+- **Decision:** 选择 Option B 作为本轮验证方式；README 仍记录标准 `pip install -e ".[dev]"`。
+- **Fix:** 用显式 `PYTHONPATH=src` 复跑 baseline 和 agent-final evaluation。
+- **Verification:** `$env:PYTHONPATH='src'; python -m final_agent.evaluation.runner --suite baseline; python -m final_agent.evaluation.runner --suite agent-final`
+- **Result:** 生成 `data/evaluation/baseline.json` 和 `data/evaluation/agent-final.json`。
+- **Resume impact:** none

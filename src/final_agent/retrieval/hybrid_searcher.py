@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
-
-import numpy as np
 
 from final_agent.knowledge.bm25_index import search as bm25_search
 from final_agent.knowledge.embedder import embed_texts

@@ -6,21 +6,26 @@ import re
 import logging
 from typing import Optional
 
-from sentence_transformers import CrossEncoder
+try:
+    from sentence_transformers import CrossEncoder
+except ModuleNotFoundError:
+    CrossEncoder = None  # type: ignore[assignment]
 
 from final_agent.schemas import Chunk, GeneratedAnswer, HallucinationFlag, VerifiedAnswer
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
 
-_RERANKER_CACHE: Optional[CrossEncoder] = None
+_RERANKER_CACHE: Optional["CrossEncoder"] = None
 _RERANKER_MODEL_NAME: Optional[str] = None
 
 _CITATION_LINE_RE = re.compile(r"([^.!?\n]*\[([a-f0-9]{8,16})\][^.!?\n]*[.!?\n]?)")
 
 
-def _get_reranker(settings: Settings) -> CrossEncoder:
+def _get_reranker(settings: Settings):
     global _RERANKER_CACHE, _RERANKER_MODEL_NAME
+    if CrossEncoder is None:
+        raise RuntimeError("sentence-transformers is not installed; install project dependencies to verify answers.")
     model_name = settings.models_reranker.model_name
     device = settings.models_reranker.device
     if _RERANKER_CACHE is not None and _RERANKER_MODEL_NAME == model_name:

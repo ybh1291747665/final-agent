@@ -1,58 +1,114 @@
-﻿# final-agent — 期末复习 Agent
+# final-agent
 
-基于 RAG（检索增强生成）的智能复习助手，支持上传 PDF / Markdown 课件，
-通过多模态识别提取知识点，结合 DeepSeek V4 Pro 生成带引用标注、
-防幻觉的复习解析、模拟题和错题分析。
+`final-agent` is a RAG-powered study assistant with an experimental adaptive study coach layer.
 
-## 技术栈
+The existing knowledge layer ingests PDF or Markdown course material, chunks it with page awareness, builds dense and BM25 indexes, retrieves with hybrid search and RRF, reranks results, generates citation-grounded answers, and checks cited sentences for semantic consistency.
 
-- **PDF 解析**: MinerU (hybrid 引擎)
-- **嵌入模型**: BAAI/bge-large-zh-v1.5
-- **向量数据库**: Chroma
-- **重排序**: BAAI/bge-reranker-v2-m3
-- **生成模型**: DeepSeek V4 Pro
-- **UI**: Streamlit
+The new study coach layer adds typed tools, deterministic planning, a bounded study workflow, persistent learner memory, a FastAPI session API, and a fixture-backed evaluation harness. The project title should remain **RAG-Powered Study Assistant** until the live Agent workflow has been demonstrated with real course material and documented final evidence.
 
-## 环境配置
+## Current Capabilities
 
-使用 Anaconda 管理虚拟环境：
+- PDF and Markdown ingestion.
+- Doubao VLM PDF-to-Markdown parsing.
+- Page-aware Markdown chunking.
+- ChromaDB dense vector storage.
+- BM25 sparse index persistence.
+- Dense + sparse retrieval with RRF fusion.
+- Cross-encoder reranking when `sentence-transformers` is installed.
+- Citation-grounded answer generation.
+- Semantic hallucination checks.
+- Course filtering.
+- Five existing RAG study modes in Streamlit.
+- Typed study coach contracts and tools.
+- Deterministic quiz generation and keyword/expected-point grading for v1.
+- SQLite learner memory and ordered tool traces.
+- FastAPI session endpoints for study coach sessions.
+- Fixed 30-case evaluation harness.
+
+## Architecture
+
+```text
+Streamlit UI
+    -> FastAPI Agent Service
+        -> Bounded Study Workflow
+            -> search_course_material
+            -> summarize_course
+            -> generate_quiz
+            -> grade_answer
+            -> get_learning_profile
+            -> update_mastery
+        -> Existing RAG Pipeline
+        -> SQLite Learner Memory + Tool Trace Store
+```
+
+## Setup
 
 ```bash
 conda create -n final-agent python=3.11 -y
 conda activate final-agent
 pip install -e ".[dev]"
-```
-
-复制 `.env.example` 为 `.env`，填入 API Key：
-
-```bash
 cp .env.example .env
 ```
 
-## 使用方式
+Fill `.env` with the API keys needed for real PDF parsing and LLM generation. Unit tests are designed to run without API keys, model downloads, ChromaDB data, or network calls.
+
+## Usage
 
 ```bash
-# 导入知识库
-final-agent ingest <pdf_or_md_path>
-
-# 问答模式
-final-agent ask "如何理解导数的定义？"
-
-# 复习模式
-final-agent review --chapter 3
-
-# 启动 Web UI
+final-agent ingest lecture.pdf
+final-agent ask "How should I understand CI automation?"
+final-agent review "configuration management"
+final-agent api --host 127.0.0.1 --port 8000
 final-agent ui
 ```
 
-## 项目结构
+Study coach API:
 
+```text
+POST /sessions
+POST /sessions/{id}/messages
+GET  /sessions/{id}
+GET  /sessions/{id}/mastery
+GET  /sessions/{id}/trace
 ```
-src/final_agent/
-├── ingestion/    # PDF 解析、Markdown 导入、分块
-├── knowledge/    # 嵌入、向量库、元数据存储、索引
-├── retrieval/    # 查询改写、混合检索、重排序、阈值过滤
-├── generation/   # Prompt 模板、LLM 客户端、答案生成
-├── ui/           # Streamlit 界面
-└── main.py       # CLI 入口
+
+## Evaluation
+
+The repository includes a fixed 30-case fixture harness:
+
+```bash
+python -m final_agent.evaluation.runner --suite baseline
+python -m final_agent.evaluation.runner --suite agent-final
 ```
+
+Latest generated fixture report: `data/evaluation/agent-final.json`.
+
+Measured fixture results:
+
+| Metric | Value |
+|---|---:|
+| Total cases | 30 |
+| Task completion rate | 100% |
+| Tool-selection accuracy | 33.3% |
+| Citation-grounding rate | 100% |
+| Grading agreement | 50% |
+| Error rate | 0% |
+
+These are deterministic fixture-harness results, not live model quality claims. Citation grounding is fixture-derived in this harness; do not use it as production accuracy or latency evidence.
+
+## Verification
+
+```bash
+pytest tests/test_schemas.py tests/retrieval tests/ingestion -v
+pytest tests/evaluation tests/agent tests/memory tests/api tests/ui -v
+ruff check src tests
+pytest --cov=final_agent --cov-report=term-missing
+python -m final_agent.evaluation.runner --suite agent-final
+```
+
+## Known Limitations
+
+- The v1 planner is deterministic and rule-based.
+- The v1 grader uses expected-point keyword coverage rather than LLM judgment.
+- The evaluation harness uses small fixed fixtures, not the full local course database.
+- Real retrieval, reranking, PDF parsing, and generation still require their configured dependencies and API keys.

@@ -3,22 +3,28 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
-import chromadb
 import numpy as np
-from chromadb.api.types import QueryResult
+try:
+    import chromadb
+    from chromadb.api.types import QueryResult
+except ModuleNotFoundError:
+    chromadb = None  # type: ignore[assignment]
+    QueryResult = dict  # type: ignore[assignment]
 
 from final_agent.schemas import Chunk
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
 
-_CLIENT_CACHE: Optional[chromadb.PersistentClient] = None
+_CLIENT_CACHE: Optional[Any] = None
 
 
-def _get_client(settings: Settings) -> chromadb.PersistentClient:
+def _get_client(settings: Settings):
     global _CLIENT_CACHE
+    if chromadb is None:
+        raise RuntimeError("chromadb is not installed; install project dependencies to use the vector store.")
     if _CLIENT_CACHE is not None:
         return _CLIENT_CACHE
     persist_dir = settings.vector_store.persist_dir
@@ -28,8 +34,8 @@ def _get_client(settings: Settings) -> chromadb.PersistentClient:
 
 
 def _get_collection(
-    settings: Settings, client: chromadb.PersistentClient
-) -> chromadb.Collection:
+    settings: Settings, client
+):
     name = settings.vector_store.collection_name
     return client.get_or_create_collection(
         name=name,

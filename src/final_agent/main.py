@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
 import subprocess
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -98,6 +96,23 @@ def ui(
         "streamlit", "run", str(ui_path),
         "--server.port", str(port),
     ], env={**__import__("os").environ, "FINAL_AGENT_ROOT": project_root})
+
+
+@app.command()
+def api(
+    host: str = typer.Option("127.0.0.1", help="API host"),
+    port: int = typer.Option(8000, help="API port"),
+):
+    """Launch the FastAPI study coach service."""
+    typer.echo(f"Starting FastAPI on http://{host}:{port}")
+    subprocess.run([
+        "uvicorn",
+        "final_agent.api.app:app",
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ])
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import sys
 import uuid as _uuid
 from datetime import datetime as _dt
 from pathlib import Path
@@ -26,6 +25,7 @@ from final_agent.generation import answer_question, verify_answer
 from final_agent.generation.answer_generator import answer_deep
 from final_agent.generation.summarizer import summarize_document
 from final_agent.settings import load_settings, Settings
+from final_agent.ui.agent_client import AgentApiClient, AgentApiError
 
 logger = logging.getLogger(__name__)
 
@@ -77,15 +77,16 @@ def _save_conversations(state: AppState) -> None:
         "active_conv_id": state.active_conv_id,
         "course_id": state.course_id,
         "query_mode": state.query_mode,
+        "model_prefs": state.model_prefs,
     }
     CONV_PATH.write_text(_json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _load_conversations() -> tuple[dict, str, str, str]:
-    """Return (conversations_dict, active_conv_id, course_id, query_mode) from disk."""
+def _load_conversations() -> tuple[dict, str, str, str, dict]:
+    """Return (conversations_dict, active_conv_id, course_id, query_mode, model_prefs) from disk."""
     import json as _json
     if not CONV_PATH.exists():
-        return {}, "", "", "qa"
+        return {}, "", "", "qa", _default_model_prefs()
     try:
         data = _json.loads(CONV_PATH.read_text(encoding="utf-8"))
         return (
@@ -93,9 +94,10 @@ def _load_conversations() -> tuple[dict, str, str, str]:
             data.get("active_conv_id", ""),
             data.get("course_id", ""),
             data.get("query_mode", "qa"),
+            data.get("model_prefs", _default_model_prefs()),
         )
     except Exception:
-        return {}, "", "", "qa"
+        return {}, "", "", "qa", _default_model_prefs()
 
 
 # ============================== AppState ==============================
@@ -108,6 +110,16 @@ def _new_conv_name() -> str:
     return f"新对话 {_dt.now().strftime('%H:%M')}"
 
 
+def _default_model_prefs() -> dict[str, str]:
+    return {
+        "qa": "deepseek-v4-flash",
+        "deep": "deepseek-v4-flash",
+        "page_by_page": "deepseek-v4-flash",
+        "full_summary": "deepseek-v4-flash",
+        "key_points": "deepseek-v4-flash",
+    }
+
+
 class AppState(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -116,7 +128,9 @@ class AppState(BaseModel):
     current_doc: str = ""
     build_counter: int = 0
     course_id: str = ""         # "" = all courses
-    query_mode: str = "qa"      # qa | deep | page_by_page | full_summary | key_points
+    query_mode: str = "qa"      # qa | deep | page_by_page | full_summary | key_points | study_coach
+    model_prefs: dict[str, str] = Field(default_factory=_default_model_prefs)
+    agent_session_id: str = ""
 
     def _current_history(self) -> list[dict]:
         """Return chat history of the active conversation."""
@@ -145,7 +159,7 @@ def init_state() -> Settings:
     if "app_state" not in st.session_state:
         st.session_state.app_state = AppState()
         # Restore persisted conversations
-        convs, active, course, mode = _load_conversations()
+        convs, active, course, mode, prefs = _load_conversations()
         if convs:
             st.session_state.app_state.conversations = convs
             if active and active in convs:
@@ -154,6 +168,11 @@ def init_state() -> Settings:
                 st.session_state.app_state.active_conv_id = next(iter(convs.keys()))
         st.session_state.app_state.course_id = course
         st.session_state.app_state.query_mode = mode or "qa"
+        if prefs:
+            # Merge with defaults so new modes always have a value
+            merged = _default_model_prefs()
+            merged.update(prefs)
+            st.session_state.app_state.model_prefs = merged
     st.session_state.app_state._ensure_default()
     if "settings" not in st.session_state:
         st.session_state.settings = load_settings()
@@ -267,6 +286,49 @@ with st.sidebar:
 
     st.divider()
 
+    # --- Hallucination stats ---
+    with st.expander("📊 幻觉统计", expanded=True):
+        all_flags: list[dict] = []
+        for msg in app_state._current_history():
+            if msg.get("role") == "assistant" and msg.get("flags"):
+                all_flags.extend(msg["flags"])
+        if not all_flags:
+            st.caption("📭 当前对话暂无校验数据")
+        else:
+            import matplotlib.pyplot as plt
+            clean = sum(1 for f in all_flags if not f.get("flagged"))
+            suspect = sum(1 for f in all_flags if f.get("flagged"))
+            total = len(all_flags)
+            fig, ax = plt.subplots(figsize=(3, 3))
+            colors = ["#2ecc71", "#e74c3c"]
+            labels = [f"✅ 通过 ({clean})", f"⚠️ 疑似 ({suspect})"]
+            sizes = [clean, suspect]
+            if suspect == 0:
+                sizes = [clean]
+                labels = labels[:1]
+                colors = colors[:1]
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                colors=colors,
+                autopct="%1.1f%%" if suspect > 0 else None,
+                startangle=90,
+                pctdistance=0.6,
+            )
+            for t in autotexts:
+                t.set_fontsize(9)
+                t.set_fontweight("bold")
+            ax.set_title(f"累计校验 {total} 处引用", fontsize=10)
+            st.pyplot(fig)
+            plt.close(fig)
+            suspect_rate = suspect / total * 100 if total else 0
+            if suspect_rate == 0:
+                st.success(f"🎉 全部通过！{total} 处引用均与原文一致")
+            elif suspect_rate < 20:
+                st.info(f"疑似率 {suspect_rate:.1f}% — 整体可信，少数需核实")
+
+    st.divider()
+
     # --- Course & Mode ---
     st.header("🔍 检索设置")
     courses = list_courses(settings=st.session_state.settings)
@@ -285,8 +347,8 @@ with st.sidebar:
         app_state.course_id = new_course
         _save_conversations(app_state)
 
-    mode_options = ["🔍 问答", "📖 深度问答", "📄 逐页输出", "📋 全文总结", "⭐ 重点总结"]
-    mode_keys = ["qa", "deep", "page_by_page", "full_summary", "key_points"]
+    mode_options = ["🔍 问答", "📖 深度问答", "📄 逐页输出", "📋 全文总结", "⭐ 重点总结", "🎓 Study Coach"]
+    mode_keys = ["qa", "deep", "page_by_page", "full_summary", "key_points", "study_coach"]
     current_mode_idx = mode_keys.index(app_state.query_mode) if app_state.query_mode in mode_keys else 0
     selected_mode = st.selectbox(
         "模  式",
@@ -297,6 +359,22 @@ with st.sidebar:
     new_mode = mode_keys[mode_options.index(selected_mode)]
     if new_mode != app_state.query_mode:
         app_state.query_mode = new_mode
+        _save_conversations(app_state)
+
+    # Model picker for current mode
+    model_names = ["deepseek-v4-flash", "deepseek-v4-pro"]
+    current_model = app_state.model_prefs.get(new_mode, "deepseek-v4-flash")
+    if current_model not in model_names:
+        current_model = "deepseek-v4-flash"
+    selected_model = st.radio(
+        "⚡ 模型选择",
+        model_names,
+        index=model_names.index(current_model),
+        key="model_radio",
+        horizontal=True,
+    )
+    if selected_model != app_state.model_prefs.get(new_mode):
+        app_state.model_prefs[new_mode] = selected_model
         _save_conversations(app_state)
 
     # Document picker for summary modes
@@ -548,7 +626,7 @@ if question:
                 else:
                     with st.spinner("生成答案..."):
                         try:
-                            ans = answer_question(question, results, settings=cur)
+                            ans = answer_question(question, results, settings=cur, model=app_state.model_prefs.get("qa"))
                         except Exception as e:
                             st.error(f"生成失败: {e}")
                             import traceback
@@ -581,7 +659,7 @@ if question:
                     st.info(f"已检索到 {len(results)} 个相关 chunk（含邻居扩展）")
                     with st.spinner("综合生成答案（多文档对比）..."):
                         try:
-                            ans = answer_deep(question, results, settings=cur)
+                            ans = answer_deep(question, results, settings=cur, model=app_state.model_prefs.get("deep"))
                         except Exception as e:
                             st.error(f"生成失败: {e}")
                             import traceback
@@ -595,6 +673,37 @@ if question:
                         _show_citations(ans, chunk_registry)
                         app_state._add_message("assistant", content=ans.answer,
                             citations=ans.citations, chunk_registry=chunk_registry)
+
+            # ==================== Study Coach mode ====================
+            elif mode == "study_coach":
+                client = AgentApiClient()
+                try:
+                    if not app_state.agent_session_id:
+                        response = client.create_session(question, cids or [])
+                        app_state.agent_session_id = response["session_id"]
+                    else:
+                        response = client.send_message(app_state.agent_session_id, question)
+
+                    plan_lines = [
+                        f"- [{ 'x' if step.get('completed') else ' ' }] {step.get('objective', '')} (`{step.get('tool_name', '')}`)"
+                        for step in response.get("plan", [])
+                    ]
+                    quiz = response.get("quiz") or {}
+                    grade = response.get("grade") or {}
+                    content = "\n".join([
+                        f"**Status:** `{response.get('status')}`",
+                        "",
+                        "**Plan:**",
+                        *plan_lines,
+                        "",
+                        f"**Question:** {quiz.get('prompt', '(none)')}",
+                        f"**Grade:** {grade.get('score', 'waiting')}",
+                        grade.get("feedback", ""),
+                    ])
+                    st.markdown(content)
+                    app_state._add_message("assistant", content=content)
+                except AgentApiError as e:
+                    st.error(f"Study Coach API error: {e}")
 
             # ==================== Summary modes ====================
             elif mode in ("page_by_page", "full_summary", "key_points"):
@@ -613,7 +722,7 @@ if question:
                     mode_labels = {"page_by_page": "逐页输出", "full_summary": "全文总结", "key_points": "重点总结"}
                     with st.spinner(f"生成{mode_labels.get(mode, mode)}中..."):
                         try:
-                            summary = summarize_document(doc_id, mode, settings=cur)
+                            summary = summarize_document(doc_id, mode, settings=cur, model=app_state.model_prefs.get(mode))
                         except Exception as e:
                             st.error(f"总结失败: {e}")
                             import traceback

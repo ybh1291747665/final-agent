@@ -243,6 +243,10 @@ def _make_chunk(
     )
 
 
+def _strip_page_markers(text: str) -> str:
+    return _PAGE_MARKER_RE.sub("", text).strip()
+
+
 def _merge_undersized(chunks: list[Chunk], min_chars: int) -> list[Chunk]:
     """Merge only truly tiny chunks (< min_chars) into the previous chunk,
     and only when they share heading_path and the merge stays compact."""
@@ -250,6 +254,8 @@ def _merge_undersized(chunks: list[Chunk], min_chars: int) -> list[Chunk]:
         return chunks
     merged: list[Chunk] = []
     for ch in chunks:
+        if not _strip_page_markers(ch.text):
+            continue
         if (len(ch.text) < min_chars
                 and merged
                 and merged[-1].heading_path == ch.heading_path):

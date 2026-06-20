@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import Optional
 
 from final_agent.generation.llm_client import generate as llm_generate
 from final_agent.generation.prompts import SYSTEM_PROMPT, QA_PROMPT, REVIEW_PROMPT, EXAM_PROMPT, DEEP_QA_SYSTEM, DEEP_QA_PROMPT
-from final_agent.schemas import Chunk, ScoredChunk, GeneratedAnswer
+from final_agent.schemas import ScoredChunk, GeneratedAnswer
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
@@ -29,6 +28,8 @@ def answer_question(
     question: str,
     chunks: list[ScoredChunk],
     settings: Settings | None = None,
+    *,
+    model: str | None = None,
 ) -> GeneratedAnswer:
     """Generate a cited answer from retrieved chunks.
 
@@ -36,6 +37,7 @@ def answer_question(
         question: User question.
         chunks: Retrieved and reranked ScoredChunk list.
         settings: Application settings.
+        model: Override model name (e.g. deepseek-v4-flash / deepseek-v4-pro).
 
     Returns:
         GeneratedAnswer with answer text and extracted citations.
@@ -51,13 +53,13 @@ def answer_question(
         {"role": "user", "content": user_prompt},
     ]
 
-    raw = llm_generate(messages, settings=settings)
+    raw = llm_generate(messages, settings=settings, model=model)
     citations = _extract_citations(raw)
 
     return GeneratedAnswer(
         answer=raw,
         citations=citations,
-        model=settings.models_llm.model,
+        model=model or settings.models_llm.model,
     )
 
 
@@ -121,11 +123,16 @@ def answer_deep(
     question: str,
     chunks: list[ScoredChunk],
     settings: Settings | None = None,
+    *,
+    model: str | None = None,
 ) -> GeneratedAnswer:
     """Deep review QA — multi-document synthesis with broader context.
 
     Uses a system prompt that encourages cross-document comparison and
     comprehensive answers. Designed to pair with ``deep_search()``.
+
+    Args:
+        model: Override model name (e.g. deepseek-v4-flash / deepseek-v4-pro).
     """
     if settings is None:
         settings = load_settings()
@@ -138,11 +145,11 @@ def answer_deep(
         {"role": "user", "content": user_prompt},
     ]
 
-    raw = llm_generate(messages, settings=settings)
+    raw = llm_generate(messages, settings=settings, model=model)
     citations = _extract_citations(raw)
 
     return GeneratedAnswer(
         answer=raw,
         citations=citations,
-        model=settings.models_llm.model,
+        model=model or settings.models_llm.model,
     )
