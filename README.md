@@ -4,7 +4,7 @@
 
 The existing knowledge layer ingests PDF or Markdown course material, chunks it with page awareness, builds dense and BM25 indexes, retrieves with hybrid search and RRF, reranks results, generates citation-grounded answers, and checks cited sentences for semantic consistency.
 
-The new study coach layer adds typed tools, deterministic planning, a bounded study workflow, persistent learner memory, a FastAPI session API, and a fixture-backed evaluation harness. The project title should remain **RAG-Powered Study Assistant** until the live Agent workflow has been demonstrated with real course material and documented final evidence.
+The new study coach layer adds typed tools, deterministic planning, a bounded study workflow, persistent learner memory, a FastAPI session API, and an evaluation harness that can run against local Markdown course material. The project title should remain **RAG-Powered Study Assistant** until the live Agent workflow has been demonstrated with model-backed generation and documented final evidence.
 
 ## Current Capabilities
 
@@ -23,7 +23,7 @@ The new study coach layer adds typed tools, deterministic planning, a bounded st
 - Deterministic quiz generation and keyword/expected-point grading for v1.
 - SQLite learner memory and ordered tool traces.
 - FastAPI session endpoints for study coach sessions.
-- Fixed 30-case evaluation harness.
+- Fixed 30-case evaluation harness with local Markdown fallback support.
 
 ## Architecture
 
@@ -74,27 +74,27 @@ GET  /sessions/{id}/trace
 
 ## Evaluation
 
-The repository includes a fixed 30-case fixture harness:
+The repository includes a fixed 30-case harness. `baseline` uses deterministic fixtures. `agent-final` uses local Markdown under `data/markdown` when present, deriving page-aware chunks and citation targets from real course files. It runs the agent workflow through a deterministic local search adapter so the evaluation stays offline and reproducible; if no local Markdown is available, it falls back to the fixture cases.
 
 ```bash
 python -m final_agent.evaluation.runner --suite baseline
-python -m final_agent.evaluation.runner --suite agent-final
+python -m final_agent.evaluation.runner --suite agent-final --data-dir data
 ```
 
-Latest generated fixture report: `data/evaluation/agent-final.json`.
+Latest generated local-course report: `data/evaluation/agent-final.json`.
 
-Measured fixture results:
+Measured local Markdown results:
 
 | Metric | Value |
 |---|---:|
 | Total cases | 30 |
 | Task completion rate | 100% |
-| Tool-selection accuracy | 33.3% |
-| Citation-grounding rate | 100% |
-| Grading agreement | 50% |
+| Tool-selection accuracy | 100% |
+| Citation-grounding rate | 66.7% |
+| Grading agreement | 100% |
 | Error rate | 0% |
 
-These are deterministic fixture-harness results, not live model quality claims. Citation grounding is fixture-derived in this harness; do not use it as production accuracy or latency evidence.
+These are deterministic local-harness results, not live model quality claims. Citation grounding is measured by lexical matching against local Markdown chunks; generation, reranking, and model-backed answer quality are outside this report.
 
 ## Verification
 
@@ -103,12 +103,12 @@ pytest tests/test_schemas.py tests/retrieval tests/ingestion -v
 pytest tests/evaluation tests/agent tests/memory tests/api tests/ui -v
 ruff check src tests
 pytest --cov=final_agent --cov-report=term-missing
-python -m final_agent.evaluation.runner --suite agent-final
+python -m final_agent.evaluation.runner --suite agent-final --data-dir data
 ```
 
 ## Known Limitations
 
 - The v1 planner is deterministic and rule-based.
 - The v1 grader uses expected-point keyword coverage rather than LLM judgment.
-- The evaluation harness uses small fixed fixtures, not the full local course database.
+- The evaluation harness uses local Markdown when present and otherwise falls back to small fixed fixtures; it does not evaluate live LLM generation quality.
 - Real retrieval, reranking, PDF parsing, and generation still require their configured dependencies and API keys.

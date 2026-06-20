@@ -119,26 +119,26 @@ Responses expose typed session state and never raw database rows or graph intern
 
 ## Evaluation
 
-The current harness uses 30 fixed fixture cases:
+The current harness uses 30 deterministic cases. The `baseline` suite uses fixed fixtures. The `agent-final` suite reads local Markdown under `data/markdown` when available, chunks it with the same page-aware chunker used by ingestion, derives expected citations from those real course chunks, and runs the agent workflow through a deterministic local search adapter. If local Markdown is unavailable, `agent-final` falls back to the fixed fixtures.
 
 - 10 retrieval and citation-grounding cases.
 - 10 tool-selection and workflow cases.
 - 10 adaptive-review and memory cases.
 
-Latest fixture report: `data/evaluation/agent-final.json`.
+Latest local-course report: `data/evaluation/agent-final.json`.
 
-Measured fixture results:
+Measured local Markdown results:
 
 | Metric | Value |
 |---|---:|
 | Total cases | 30 |
 | Task completion rate | 100% |
-| Tool-selection accuracy | 33.3% |
-| Citation-grounding rate | 100% |
-| Grading agreement | 50% |
+| Tool-selection accuracy | 100% |
+| Citation-grounding rate | 66.7% |
+| Grading agreement | 100% |
 | Error rate | 0% |
 
-These values prove the deterministic harness and contracts, not live model accuracy. Citation grounding is fixture-derived in this harness.
+These values prove the deterministic harness, local course ingestion path, and agent tool contracts, not live model accuracy. Citation grounding is currently lexical against local Markdown chunks through the evaluation adapter, so it is useful as a repeatable regression signal but not as a production retrieval or generation benchmark.
 
 ## Deferred Scope
 

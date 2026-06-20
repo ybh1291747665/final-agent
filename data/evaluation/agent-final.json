@@ -3,176 +3,209 @@
   "summary": {
     "total_cases": 30,
     "task_completion_rate": 1.0,
-    "tool_selection_accuracy": 0.3333333333333333,
-    "citation_grounding_rate": 1.0,
-    "grading_agreement": 0.5,
+    "tool_selection_accuracy": 1.0,
+    "citation_grounding_rate": 0.6666666666666666,
+    "grading_agreement": 1.0,
     "mean_latency_ms": 0,
-    "p95_latency_ms": 0,
+    "p95_latency_ms": 2,
     "error_rate": 0.0
   },
   "results": [
     {
-      "case_id": "retrieval-01",
+      "case_id": "local-retrieval-01",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-01"
+        "02-devsecops-engg-and-automation-introduction-001"
       ],
       "actual_citations": [
-        "fixture-01"
+        "02-devsecops-engg-and-automation-introduction-001",
+        "02-devsecops-engg-and-automation-introduction-003",
+        "02-devsecops-engg-and-automation-introduction-017",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-007"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 4,
+      "elapsed_ms": 3,
       "error": ""
     },
     {
-      "case_id": "retrieval-02",
+      "case_id": "local-retrieval-02",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-02"
+        "02-devsecops-engg-and-automation-introduction-002"
       ],
       "actual_citations": [
-        "fixture-02"
+        "02-devsecops-engg-and-automation-introduction-002",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "retrieval-03",
+      "case_id": "local-retrieval-03",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-03"
+        "02-devsecops-engg-and-automation-introduction-003"
       ],
       "actual_citations": [
-        "fixture-03"
+        "02-devsecops-engg-and-automation-introduction-003",
+        "02-devsecops-engg-and-automation-introduction-006"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "retrieval-04",
+      "case_id": "local-retrieval-04",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-04"
+        "02-devsecops-engg-and-automation-introduction-004"
       ],
       "actual_citations": [
-        "fixture-04"
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-006"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "retrieval-05",
+      "case_id": "local-retrieval-05",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-05"
+        "02-devsecops-engg-and-automation-introduction-005"
       ],
       "actual_citations": [
-        "fixture-05"
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-001",
+        "02-devsecops-engg-and-automation-introduction-002"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "retrieval-06",
+      "case_id": "local-retrieval-06",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-06"
+        "02-devsecops-engg-and-automation-introduction-006"
       ],
       "actual_citations": [
-        "fixture-06"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "retrieval-07",
+      "case_id": "local-retrieval-07",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-07"
+        "02-devsecops-engg-and-automation-introduction-007"
       ],
       "actual_citations": [
-        "fixture-07"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
       ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "retrieval-08",
+      "case_id": "local-retrieval-08",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-08"
+        "02-devsecops-engg-and-automation-introduction-008"
       ],
       "actual_citations": [
-        "fixture-08"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
       ],
       "expected_score_band": null,
       "actual_score": null,
@@ -180,20 +213,25 @@
       "error": ""
     },
     {
-      "case_id": "retrieval-09",
+      "case_id": "local-retrieval-09",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-09"
+        "02-devsecops-engg-and-automation-introduction-009"
       ],
       "actual_citations": [
-        "fixture-09"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
       ],
       "expected_score_band": null,
       "actual_score": null,
@@ -201,20 +239,25 @@
       "error": ""
     },
     {
-      "case_id": "retrieval-10",
+      "case_id": "local-retrieval-10",
       "completed": true,
       "expected_tools": [
-        "search_course_material"
+        "search_course_material",
+        "generate_quiz"
       ],
       "actual_tools": [
         "search_course_material",
         "generate_quiz"
       ],
       "required_citations": [
-        "fixture-10"
+        "02-devsecops-engg-and-automation-introduction-010"
       ],
       "actual_citations": [
-        "fixture-10"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
       ],
       "expected_score_band": null,
       "actual_score": null,
@@ -222,7 +265,7 @@
       "error": ""
     },
     {
-      "case_id": "tool-01",
+      "case_id": "local-tool-11",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -232,15 +275,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-011"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
+      ],
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
       "error": ""
     },
     {
-      "case_id": "tool-02",
+      "case_id": "local-tool-12",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -250,15 +301,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-012"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009"
+      ],
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
       "error": ""
     },
     {
-      "case_id": "tool-03",
+      "case_id": "local-tool-13",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -268,15 +327,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-013"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-012",
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-014"
+      ],
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
       "error": ""
     },
     {
-      "case_id": "tool-04",
+      "case_id": "local-tool-14",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -286,15 +353,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-014"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-012",
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-014"
+      ],
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
       "error": ""
     },
     {
-      "case_id": "tool-05",
+      "case_id": "local-tool-15",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -304,15 +379,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-015"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-015",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-012",
+        "02-devsecops-engg-and-automation-introduction-013"
+      ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "tool-06",
+      "case_id": "local-tool-16",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -322,15 +405,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-016"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-016",
+        "02-devsecops-engg-and-automation-introduction-017",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-012"
+      ],
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
       "error": ""
     },
     {
-      "case_id": "tool-07",
+      "case_id": "local-tool-17",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -340,15 +431,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "02-devsecops-engg-and-automation-introduction-017"
+      ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-016",
+        "02-devsecops-engg-and-automation-introduction-017",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-012"
+      ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "tool-08",
+      "case_id": "local-tool-18",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -358,15 +457,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-001"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-001",
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-016",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005"
+      ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "tool-09",
+      "case_id": "local-tool-19",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -376,15 +483,23 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "tool-10",
+      "case_id": "local-tool-20",
       "completed": true,
       "expected_tools": [
         "search_course_material",
@@ -394,17 +509,27 @@
         "search_course_material",
         "generate_quiz"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-003"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
       "expected_score_band": null,
       "actual_score": null,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "adaptive-01",
+      "case_id": "local-adaptive-21",
       "completed": true,
       "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
         "grade_answer",
         "update_mastery"
       ],
@@ -414,17 +539,27 @@
         "grade_answer",
         "update_mastery"
       ],
-      "required_citations": [],
-      "actual_citations": [],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-004"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
       "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "adaptive-02",
+      "case_id": "local-adaptive-22",
       "completed": true,
       "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
         "grade_answer",
         "update_mastery"
       ],
@@ -434,37 +569,27 @@
         "grade_answer",
         "update_mastery"
       ],
-      "required_citations": [],
-      "actual_citations": [],
-      "expected_score_band": "medium",
-      "actual_score": 1.0,
-      "elapsed_ms": 0,
-      "error": ""
-    },
-    {
-      "case_id": "adaptive-03",
-      "completed": true,
-      "expected_tools": [
-        "grade_answer",
-        "update_mastery"
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-005"
       ],
-      "actual_tools": [
-        "search_course_material",
-        "generate_quiz",
-        "grade_answer",
-        "update_mastery"
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
       ],
-      "required_citations": [],
-      "actual_citations": [],
       "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 2,
       "error": ""
     },
     {
-      "case_id": "adaptive-04",
+      "case_id": "local-adaptive-23",
       "completed": true,
       "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
         "grade_answer",
         "update_mastery"
       ],
@@ -474,37 +599,27 @@
         "grade_answer",
         "update_mastery"
       ],
-      "required_citations": [],
-      "actual_citations": [],
-      "expected_score_band": "medium",
-      "actual_score": 1.0,
-      "elapsed_ms": 0,
-      "error": ""
-    },
-    {
-      "case_id": "adaptive-05",
-      "completed": true,
-      "expected_tools": [
-        "grade_answer",
-        "update_mastery"
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
       ],
-      "actual_tools": [
-        "search_course_material",
-        "generate_quiz",
-        "grade_answer",
-        "update_mastery"
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
       ],
-      "required_citations": [],
-      "actual_citations": [],
       "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 2,
       "error": ""
     },
     {
-      "case_id": "adaptive-06",
+      "case_id": "local-adaptive-24",
       "completed": true,
       "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
         "grade_answer",
         "update_mastery"
       ],
@@ -514,37 +629,27 @@
         "grade_answer",
         "update_mastery"
       ],
-      "required_citations": [],
-      "actual_citations": [],
-      "expected_score_band": "medium",
-      "actual_score": 1.0,
-      "elapsed_ms": 0,
-      "error": ""
-    },
-    {
-      "case_id": "adaptive-07",
-      "completed": true,
-      "expected_tools": [
-        "grade_answer",
-        "update_mastery"
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-007"
       ],
-      "actual_tools": [
-        "search_course_material",
-        "generate_quiz",
-        "grade_answer",
-        "update_mastery"
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
       ],
-      "required_citations": [],
-      "actual_citations": [],
       "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 2,
       "error": ""
     },
     {
-      "case_id": "adaptive-08",
+      "case_id": "local-adaptive-25",
       "completed": true,
       "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
         "grade_answer",
         "update_mastery"
       ],
@@ -554,37 +659,27 @@
         "grade_answer",
         "update_mastery"
       ],
-      "required_citations": [],
-      "actual_citations": [],
-      "expected_score_band": "medium",
-      "actual_score": 1.0,
-      "elapsed_ms": 0,
-      "error": ""
-    },
-    {
-      "case_id": "adaptive-09",
-      "completed": true,
-      "expected_tools": [
-        "grade_answer",
-        "update_mastery"
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-008"
       ],
-      "actual_tools": [
-        "search_course_material",
-        "generate_quiz",
-        "grade_answer",
-        "update_mastery"
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
       ],
-      "required_citations": [],
-      "actual_citations": [],
       "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
-      "case_id": "adaptive-10",
+      "case_id": "local-adaptive-26",
       "completed": true,
       "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
         "grade_answer",
         "update_mastery"
       ],
@@ -594,11 +689,139 @@
         "grade_answer",
         "update_mastery"
       ],
-      "required_citations": [],
-      "actual_citations": [],
-      "expected_score_band": "medium",
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-009"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
+      "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
+      "error": ""
+    },
+    {
+      "case_id": "local-adaptive-27",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-010"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
+      "expected_score_band": "high",
+      "actual_score": 1.0,
+      "elapsed_ms": 1,
+      "error": ""
+    },
+    {
+      "case_id": "local-adaptive-28",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-011"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
+      "expected_score_band": "high",
+      "actual_score": 1.0,
+      "elapsed_ms": 1,
+      "error": ""
+    },
+    {
+      "case_id": "local-adaptive-29",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-012"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
+      "expected_score_band": "high",
+      "actual_score": 1.0,
+      "elapsed_ms": 1,
+      "error": ""
+    },
+    {
+      "case_id": "local-adaptive-30",
+      "completed": true,
+      "expected_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "actual_tools": [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery"
+      ],
+      "required_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-013"
+      ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      ],
+      "expected_score_band": "high",
+      "actual_score": 1.0,
+      "elapsed_ms": 1,
       "error": ""
     }
   ]

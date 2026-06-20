@@ -236,3 +236,20 @@
 - **Verification:** `$env:PYTHONPATH='src'; python -m final_agent.evaluation.runner --suite baseline; python -m final_agent.evaluation.runner --suite agent-final`
 - **Result:** 生成 `data/evaluation/baseline.json` 和 `data/evaluation/agent-final.json`。
 - **Resume impact:** none
+
+### Issue: `agent-final` evaluation 需要真实课件证据
+
+- **Date:** 2026-06-20
+- **Status:** resolved
+- **Where:** `src/final_agent/evaluation/dataset.py`, `src/final_agent/evaluation/runner.py`
+- **Symptom:** 旧 `agent-final` report 只复制 fixture citation，不能回答“Agent 是否真的用本地课件跑过”。
+- **Root cause:** v1 evaluation 为了离线稳定，最初只覆盖固定 fixture；这适合 CI，但证据不够接近真实 course material。
+- **Options considered:**
+  - Option A: 直接调用 live LLM + Chroma/Reranker，全链路真实但需要 API key、模型和本地向量库，CI 不稳定。
+  - Option B: 读取 `data/markdown`，复用 page-aware chunker，生成本地课程 case，并用确定性词法检索计算 citation grounding。
+- **Decision:** 选择 Option B 作为本轮“真实 evaluation runner”。它验证真实本地 Markdown chunk/citation 路径，不声明 live LLM 或生产检索质量。
+- **Fix:** `agent-final` 在有 `data/markdown` 时生成 `local-*` cases，并通过确定性 local search adapter 运行 Agent workflow；无本地 Markdown 时回退 fixture，保证自动测试不依赖重数据。
+- **Verification:** `$env:PYTHONPATH='src'; python -m final_agent.evaluation.runner --suite agent-final --data-dir data`
+- **Result:** 30 cases；task completion 100%；tool-selection 100%；citation-grounding 66.7%；grading agreement 100%；error rate 0%。
+- **Reworked check:** `ruff check src tests` 因当前 shell PATH 找不到 `ruff` 失败；改用 `python -m ruff check src tests`，结果通过。
+- **Resume impact:** can mention local-course evaluation evidence, but say no live LLM quality claim
