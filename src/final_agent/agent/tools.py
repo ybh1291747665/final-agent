@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from final_agent.agent.graders import DeterministicGrader
-from final_agent.agent.models import GradeResult, ToolResult
+from final_agent.agent.models import ToolResult
 from final_agent.agent.quiz_generators import DeterministicQuizGenerator
 from final_agent.retrieval import pipeline as retrieval_pipeline
 
