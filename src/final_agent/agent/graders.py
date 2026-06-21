@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from final_agent.agent.models import GradeResult
 from final_agent.generation.llm_client import generate as llm_generate
+from final_agent.settings import Settings
 from final_agent.settings import load_settings
 
 
@@ -41,8 +42,33 @@ class DeterministicGrader:
 class LlmGrader:
     implementation = "llm"
 
-    def __init__(self, fallback: DeterministicGrader | None = None):
+    def __init__(
+        self,
+        fallback: DeterministicGrader | None = None,
+        *,
+        llm_callable: Callable[..., str] = llm_generate,
+        settings: Settings | Any | None = None,
+        settings_loader: Callable[[], Settings] = load_settings,
+    ):
         self.fallback = fallback or DeterministicGrader()
+        self.llm_callable = llm_callable
+        self.settings = settings
+        self.settings_loader = settings_loader
+
+    def _fallback(
+        self,
+        reason: str,
+        question: str,
+        expected_points: list[str],
+        learner_answer: str,
+        *,
+        materials: list[Any] | None = None,
+    ) -> tuple[GradeResult, GradeEvaluationMeta]:
+        grade = self.fallback.grade(question, expected_points, learner_answer, materials=materials)
+        return grade, GradeEvaluationMeta(
+            implementation="deterministic-fallback",
+            fallback_reason=reason[:120],
+        )
 
     def grade_with_meta(
         self,
@@ -61,21 +87,26 @@ class LlmGrader:
             f"Materials: {materials or []}"
         )
         try:
-            raw = llm_generate([{"role": "user", "content": prompt}], settings=load_settings())
+            settings = self.settings if self.settings is not None else self.settings_loader()
+            raw = self.llm_callable([{"role": "user", "content": prompt}], settings=settings)
             data = json.loads(raw)
             grade = GradeResult.model_validate(data)
             return grade, GradeEvaluationMeta(implementation="llm")
         except json.JSONDecodeError as exc:
-            grade = self.fallback.grade(question, expected_points, learner_answer, materials=materials)
-            return grade, GradeEvaluationMeta(
-                implementation="deterministic-fallback",
-                fallback_reason=f"JSON decode error: {exc}"[:120],
+            return self._fallback(
+                f"JSON decode error: {exc}",
+                question,
+                expected_points,
+                learner_answer,
+                materials=materials,
             )
         except Exception as exc:
-            grade = self.fallback.grade(question, expected_points, learner_answer, materials=materials)
-            return grade, GradeEvaluationMeta(
-                implementation="deterministic-fallback",
-                fallback_reason=str(exc)[:120],
+            return self._fallback(
+                str(exc),
+                question,
+                expected_points,
+                learner_answer,
+                materials=materials,
             )
 
     def grade(
