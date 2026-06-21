@@ -64,8 +64,20 @@ def test_grade_answer_delegates_to_injected_grader():
     from final_agent.agent.models import GradeResult
     from final_agent.agent.tools import grade_answer
 
+    calls = {}
+    materials = []
+
     class FakeGrader:
+        def __bool__(self):
+            return False
+
         def grade(self, question, expected_points, learner_answer, *, materials=None):
+            calls.update(
+                question=question,
+                expected_points=expected_points,
+                learner_answer=learner_answer,
+                materials=materials,
+            )
             return GradeResult(
                 score=0.25,
                 covered_points=["adapter"],
@@ -78,9 +90,35 @@ def test_grade_answer_delegates_to_injected_grader():
         ["automation", "testing"],
         "adapter",
         grader=FakeGrader(),
-        materials=[],
+        materials=materials,
     )
 
     assert result.ok is True
     assert result.value.score == 0.25
     assert result.value.feedback == "Injected grade"
+    assert calls == {
+        "question": "What is CI?",
+        "expected_points": ["automation", "testing"],
+        "learner_answer": "adapter",
+        "materials": materials,
+    }
+    assert calls["materials"] is materials
+
+
+def test_grade_answer_wraps_injected_grader_errors():
+    from final_agent.agent.tools import grade_answer
+
+    class FakeGrader:
+        def grade(self, question, expected_points, learner_answer, *, materials=None):
+            raise RuntimeError("Injected failure")
+
+    result = grade_answer(
+        "What is CI?",
+        ["automation", "testing"],
+        "adapter",
+        grader=FakeGrader(),
+        materials=[],
+    )
+
+    assert result.ok is False
+    assert "Injected failure" in result.error

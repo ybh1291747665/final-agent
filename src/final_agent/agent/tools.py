@@ -66,16 +66,17 @@ def grade_answer(
     expected_points: list[str],
     learner_answer: str,
     *,
-    grader=None,
-    materials=None,
+    grader: Any | None = None,
+    materials: list[Any] | None = None,
 ) -> ToolResult:
-    selected_grader = grader or DeterministicGrader()
+    selected_grader = DeterministicGrader() if grader is None else grader
+    selected_materials = [] if materials is None else materials
     return run_tool(
         lambda: selected_grader.grade(
             question,
             expected_points,
             learner_answer,
-            materials=materials or [],
+            materials=selected_materials,
         )
     )
 
