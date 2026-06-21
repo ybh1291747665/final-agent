@@ -92,6 +92,9 @@ def test_graph_uses_injected_grader():
     from final_agent.agent.models import AgentState, GradeResult, QuizQuestion
 
     class FakeGrader:
+        def __bool__(self):
+            return False
+
         def grade_with_meta(self, question, expected_points, learner_answer, *, materials=None):
             return (
                 GradeResult(
@@ -121,6 +124,10 @@ def test_graph_uses_injected_grader():
 
     updated = run_study_turn(state, grader=FakeGrader())
 
+    grade_trace = next(trace for trace in updated.tool_trace if trace.tool_name == "grade_answer")
+
+    assert updated.status == "completed"
     assert updated.grade is not None
     assert updated.grade.feedback == "Injected grade"
-    assert "impl=llm" in updated.tool_trace[-2].input_summary
+    assert updated.tool_trace[-1].tool_name == "update_mastery"
+    assert "impl=llm" in grade_trace.input_summary

@@ -93,7 +93,7 @@ def run_study_turn(state: AgentState, repository=None, quiz_generator=None, grad
         return state
 
     quiz_generator = quiz_generator or DeterministicQuizGenerator()
-    grader = grader or DeterministicGrader()
+    grader = DeterministicGrader() if grader is None else grader
     state = create_plan(state)
     for step in state.plan:
         if step.tool_name not in TOOL_REGISTRY:
