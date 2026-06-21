@@ -85,3 +85,42 @@ def test_graph_uses_injected_quiz_generator():
     assert state.quiz is not None
     assert state.quiz.prompt == "Injected prompt"
     assert "impl=llm" in state.tool_trace[-1].input_summary
+
+
+def test_graph_uses_injected_grader():
+    from final_agent.agent.graph import run_study_turn
+    from final_agent.agent.models import AgentState, GradeResult, QuizQuestion
+
+    class FakeGrader:
+        def grade_with_meta(self, question, expected_points, learner_answer, *, materials=None):
+            return (
+                GradeResult(
+                    score=0.75,
+                    covered_points=["automation"],
+                    missed_points=[],
+                    feedback="Injected grade",
+                ),
+                type("Meta", (), {"implementation": "llm", "fallback_reason": ""})(),
+            )
+
+        def grade(self, question, expected_points, learner_answer, *, materials=None):
+            raise AssertionError("graph should use grade_with_meta for observability")
+
+    state = AgentState(
+        session_id="s1",
+        learning_goal="review CI",
+        status="waiting_for_answer",
+        quiz=QuizQuestion(
+            question_id="q1",
+            topic="review CI",
+            prompt="What is CI?",
+            expected_points=["automation"],
+        ),
+        learner_answer="automation matters",
+    )
+
+    updated = run_study_turn(state, grader=FakeGrader())
+
+    assert updated.grade is not None
+    assert updated.grade.feedback == "Injected grade"
+    assert "impl=llm" in updated.tool_trace[-2].input_summary

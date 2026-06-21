@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from final_agent.agent.graders import DeterministicGrader
 from final_agent.agent.mastery import choose_learning_action
 from final_agent.agent.models import AgentState, QuizQuestion, StudyPlanStep, ToolTraceEntry
 from final_agent.agent.quiz_generators import DeterministicQuizGenerator
@@ -86,12 +87,13 @@ def _append_trace(
     state.tool_call_count += 1
 
 
-def run_study_turn(state: AgentState, repository=None, quiz_generator=None) -> AgentState:
+def run_study_turn(state: AgentState, repository=None, quiz_generator=None, grader=None) -> AgentState:
     if state.tool_call_count >= MAX_TOOL_CALLS:
         state.status = "failed"
         return state
 
     quiz_generator = quiz_generator or DeterministicQuizGenerator()
+    grader = grader or DeterministicGrader()
     state = create_plan(state)
     for step in state.plan:
         if step.tool_name not in TOOL_REGISTRY:
@@ -137,12 +139,45 @@ def run_study_turn(state: AgentState, repository=None, quiz_generator=None) -> A
             return state
         if state.quiz is None:
             state.quiz = QuizQuestion(question_id=f"quiz-{uuid4().hex[:8]}", topic=state.learning_goal, prompt=f"Explain {state.learning_goal}", expected_points=[state.learning_goal.lower()])
-        grade_result = grade_answer(state.quiz.prompt, state.quiz.expected_points, state.learner_answer)
-        _append_trace(state, "grade_answer", grade_result.ok, grade_result.elapsed_ms, grade_result.error)
+        grade_meta = None
+        if hasattr(grader, "grade_with_meta"):
+            grade_result = run_tool(
+                lambda: grader.grade_with_meta(
+                    state.quiz.prompt,
+                    state.quiz.expected_points,
+                    state.learner_answer,
+                    materials=[],
+                )
+            )
+            if grade_result.ok:
+                state.grade, grade_meta = grade_result.value
+        else:
+            grade_result = grade_answer(
+                state.quiz.prompt,
+                state.quiz.expected_points,
+                state.learner_answer,
+                grader=grader,
+                materials=[],
+            )
+            if grade_result.ok:
+                state.grade = grade_result.value
+        _append_trace(
+            state,
+            "grade_answer",
+            grade_result.ok,
+            grade_result.elapsed_ms,
+            grade_meta.fallback_reason if grade_meta else grade_result.error,
+            input_summary=(
+                f"{state.quiz.topic[:60]} | impl={grade_meta.implementation}"
+                if grade_meta
+                else state.learning_goal[:80]
+            ),
+        )
         if not grade_result.ok:
             state.status = "failed"
             return state
-        state.grade = grade_result.value
+        if state.grade is None:
+            state.grade = grade_result.value
         if repository is not None:
             repository.save_attempt(state.session_id, state.quiz, state.learner_answer, state.grade)
         mastery_result = update_mastery(state.session_id, state.quiz.topic, state.grade.score, repository)
