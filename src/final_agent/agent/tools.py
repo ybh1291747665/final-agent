@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from final_agent.agent.graders import DeterministicGrader
 from final_agent.agent.models import GradeResult, ToolResult
 from final_agent.agent.quiz_generators import DeterministicQuizGenerator
 from final_agent.retrieval import pipeline as retrieval_pipeline
@@ -60,20 +61,23 @@ def generate_quiz(
     return run_tool(lambda: generator.generate(topic, course_ids or [], count))
 
 
-def grade_answer(question: str, expected_points: list[str], learner_answer: str) -> ToolResult:
-    def _op() -> GradeResult:
-        normalized = learner_answer.lower()
-        covered = [point for point in expected_points if point.lower() in normalized]
-        missed = [point for point in expected_points if point not in covered]
-        score = len(covered) / len(expected_points) if expected_points else 0.0
-        return GradeResult(
-            score=score,
-            covered_points=covered,
-            missed_points=missed,
-            feedback="Covered all expected points." if not missed else f"Review: {', '.join(missed)}",
+def grade_answer(
+    question: str,
+    expected_points: list[str],
+    learner_answer: str,
+    *,
+    grader=None,
+    materials=None,
+) -> ToolResult:
+    selected_grader = grader or DeterministicGrader()
+    return run_tool(
+        lambda: selected_grader.grade(
+            question,
+            expected_points,
+            learner_answer,
+            materials=materials or [],
         )
-
-    return run_tool(_op)
+    )
 
 
 def get_learning_profile(session_id: str, repository: Any | None = None) -> ToolResult:

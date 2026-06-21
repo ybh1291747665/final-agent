@@ -58,3 +58,29 @@ def test_generate_quiz_delegates_to_injected_generator():
     assert result.ok is True
     assert result.value.prompt == "Injected prompt"
     assert result.value.difficulty == "hard"
+
+
+def test_grade_answer_delegates_to_injected_grader():
+    from final_agent.agent.models import GradeResult
+    from final_agent.agent.tools import grade_answer
+
+    class FakeGrader:
+        def grade(self, question, expected_points, learner_answer, *, materials=None):
+            return GradeResult(
+                score=0.25,
+                covered_points=["adapter"],
+                missed_points=["testing"],
+                feedback="Injected grade",
+            )
+
+    result = grade_answer(
+        "What is CI?",
+        ["automation", "testing"],
+        "adapter",
+        grader=FakeGrader(),
+        materials=[],
+    )
+
+    assert result.ok is True
+    assert result.value.score == 0.25
+    assert result.value.feedback == "Injected grade"
