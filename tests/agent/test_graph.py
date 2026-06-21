@@ -67,6 +67,9 @@ def test_graph_uses_injected_quiz_generator():
     from final_agent.agent.models import AgentState, QuizQuestion
 
     class FakeGenerator:
+        def __bool__(self):
+            return False
+
         def generate_with_meta(self, topic, course_ids=None, count=1):
             return (
                 QuizQuestion(
@@ -140,6 +143,9 @@ def test_build_graph_threads_injected_dependencies_for_fallback_grading():
     from final_agent.agent.models import AgentState, GradeResult, QuizQuestion
 
     class FakeGenerator:
+        def __bool__(self):
+            return False
+
         def generate_with_meta(self, topic, course_ids=None, count=1):
             return (
                 QuizQuestion(
@@ -174,14 +180,27 @@ def test_build_graph_threads_injected_dependencies_for_fallback_grading():
     if graph is None:
         pytest.skip("langgraph not installed")
 
-    updated = AgentState.model_validate(
-        graph.invoke(AgentState(session_id="s1", learning_goal="review CI", learner_answer="automation matters").model_dump())
+    paused = AgentState.model_validate(
+        graph.invoke(AgentState(session_id="s1", learning_goal="review CI").model_dump())
     )
+    resumed_input = paused.model_copy(update={"learner_answer": "automation matters"})
+    updated = AgentState.model_validate(graph.invoke(resumed_input.model_dump()))
 
     grade_trace = next(trace for trace in updated.tool_trace if trace.tool_name == "grade_answer")
 
+    assert paused.status == "waiting_for_answer"
+    assert [trace.tool_name for trace in paused.tool_trace] == ["search_course_material", "generate_quiz"]
+    assert paused.quiz is not None
+    assert paused.quiz.prompt == "Injected prompt"
+    assert updated.status == "completed"
     assert updated.grade is not None
     assert updated.grade.feedback == "Fallback grade"
+    assert [trace.tool_name for trace in updated.tool_trace] == [
+        "search_course_material",
+        "generate_quiz",
+        "grade_answer",
+        "update_mastery",
+    ]
     assert "impl=deterministic-fallback" in grade_trace.input_summary
     assert grade_trace.error == "LLM timeout"
     assert updated.tool_trace[-1].tool_name == "update_mastery"

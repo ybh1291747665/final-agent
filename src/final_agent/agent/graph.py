@@ -116,7 +116,7 @@ def run_study_turn(state: AgentState, repository=None, quiz_generator=None, grad
         state.status = "failed"
         return state
 
-    quiz_generator = quiz_generator or DeterministicQuizGenerator()
+    quiz_generator = DeterministicQuizGenerator() if quiz_generator is None else quiz_generator
     grader = DeterministicGrader() if grader is None else grader
     state = create_plan(state)
     for step in state.plan:
