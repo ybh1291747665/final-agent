@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from pydantic import ValidationError
+
 from final_agent.agent.models import GradeResult
 from final_agent.generation.llm_client import generate as llm_generate
 from final_agent.settings import Settings
@@ -47,7 +49,7 @@ class LlmGrader:
         fallback: DeterministicGrader | None = None,
         *,
         llm_callable: Callable[..., str] = llm_generate,
-        settings: Settings | Any | None = None,
+        settings: Settings | None = None,
         settings_loader: Callable[[], Settings] = load_settings,
     ):
         self.fallback = fallback or DeterministicGrader()
@@ -95,6 +97,14 @@ class LlmGrader:
         except json.JSONDecodeError as exc:
             return self._fallback(
                 f"JSON decode error: {exc}",
+                question,
+                expected_points,
+                learner_answer,
+                materials=materials,
+            )
+        except ValidationError as exc:
+            return self._fallback(
+                f"Validation error: {exc}",
                 question,
                 expected_points,
                 learner_answer,

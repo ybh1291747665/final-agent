@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from final_agent.settings import Settings
+
 
 def assert_deterministic_partial_grade(grade):
     assert grade.score == 0.5
     assert grade.covered_points == ["automation"]
     assert grade.missed_points == ["testing"]
     assert grade.feedback == "Review: testing"
+
+
+def make_settings() -> Settings:
+    return Settings()
 
 
 def test_deterministic_grader_matches_expected_points():
@@ -47,7 +53,7 @@ def test_llm_grader_validates_json():
         llm_callable=lambda messages, settings=None, model=None, temperature=None, max_tokens=None: (
             '{"score":0.5,"covered_points":["automation"],"missed_points":["testing"],"feedback":"Mention testing too."}'
         ),
-        settings={"provider": "test"},
+        settings=make_settings(),
     ).grade_with_meta(
         "What is CI?",
         ["automation", "testing"],
@@ -67,7 +73,7 @@ def test_llm_grader_falls_back_to_deterministic_on_bad_json():
 
     grade, meta = LlmGrader(
         llm_callable=lambda messages, settings=None, model=None, temperature=None, max_tokens=None: "not-json",
-        settings={"provider": "test"},
+        settings=make_settings(),
     ).grade_with_meta(
         "What is CI?",
         ["automation", "testing"],
@@ -87,7 +93,7 @@ def test_llm_grader_falls_back_to_deterministic_on_provider_exception():
         llm_callable=lambda messages, settings=None, model=None, temperature=None, max_tokens=None: (_ for _ in ()).throw(
             RuntimeError("provider offline")
         ),
-        settings={"provider": "test"},
+        settings=make_settings(),
     ).grade_with_meta(
         "What is CI?",
         ["automation", "testing"],
@@ -107,7 +113,7 @@ def test_llm_grader_falls_back_to_deterministic_on_validation_failure():
         llm_callable=lambda messages, settings=None, model=None, temperature=None, max_tokens=None: (
             '{"score":0.5,"covered_points":["automation"],"missed_points":["testing"]}'
         ),
-        settings={"provider": "test"},
+        settings=make_settings(),
     ).grade_with_meta(
         "What is CI?",
         ["automation", "testing"],
@@ -117,4 +123,29 @@ def test_llm_grader_falls_back_to_deterministic_on_validation_failure():
 
     assert_deterministic_partial_grade(grade)
     assert meta.implementation == "deterministic-fallback"
-    assert "feedback" in meta.fallback_reason.lower()
+    assert meta.fallback_reason.startswith("Validation error:")
+
+
+def test_llm_grader_uses_settings_loader_when_settings_not_injected():
+    from final_agent.agent.graders import LlmGrader
+
+    captured = {}
+    loaded_settings = make_settings()
+
+    grade, meta = LlmGrader(
+        llm_callable=lambda messages, settings=None, model=None, temperature=None, max_tokens=None: captured.setdefault(
+            "settings", settings
+        )
+        and '{"score":1.0,"covered_points":["automation"],"missed_points":[],"feedback":"ok"}',
+        settings_loader=lambda: loaded_settings,
+    ).grade_with_meta(
+        "What is CI?",
+        ["automation"],
+        "CI uses automation for builds.",
+        materials=[],
+    )
+
+    assert captured["settings"] is loaded_settings
+    assert isinstance(captured["settings"], Settings)
+    assert grade.score == 1.0
+    assert meta.implementation == "llm"
