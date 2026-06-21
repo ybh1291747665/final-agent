@@ -6,6 +6,7 @@ import pytest
 
 @pytest.mark.anyio
 async def test_session_api_contract(tmp_path, monkeypatch):
+    from final_agent.agent.graders import DeterministicGrader
     from final_agent.api.app import create_app
     from final_agent.agent.models import ToolResult
     from final_agent.memory.repository import MemoryRepository
@@ -19,7 +20,10 @@ async def test_session_api_contract(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(api_app_module, "_warm_knowledge_cache", lambda: None)
 
-    app = create_app(repository=MemoryRepository(tmp_path / "api.sqlite"))
+    app = create_app(
+        repository=MemoryRepository(tmp_path / "api.sqlite"),
+        grader=DeterministicGrader(),
+    )
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         created = await client.post(
@@ -98,7 +102,7 @@ def test_agent_service_passes_quiz_generator_to_workflow(tmp_path, monkeypatch):
 
     calls = {}
 
-    def fake_run_study_turn(state, repository=None, quiz_generator=None):
+    def fake_run_study_turn(state, repository=None, quiz_generator=None, grader=None):
         calls["quiz_generator"] = quiz_generator
         state.status = "waiting_for_answer"
         return state
@@ -109,3 +113,34 @@ def test_agent_service_passes_quiz_generator_to_workflow(tmp_path, monkeypatch):
     service.create_session(CreateSessionRequest(learning_goal="review CI", course_ids=[]))
 
     assert calls["quiz_generator"] is service.quiz_generator
+
+
+def test_agent_service_defaults_to_llm_grader(tmp_path):
+    from final_agent.agent.graders import DeterministicGrader, LlmGrader
+    from final_agent.api.app import AgentService
+    from final_agent.memory.repository import MemoryRepository
+
+    service = AgentService(MemoryRepository(tmp_path / "api.sqlite"))
+
+    assert isinstance(service.grader, LlmGrader)
+    assert isinstance(service.grader.fallback, DeterministicGrader)
+
+
+def test_agent_service_passes_grader_to_workflow(tmp_path, monkeypatch):
+    from final_agent.api.app import AgentService
+    from final_agent.api.schemas import CreateSessionRequest
+    from final_agent.memory.repository import MemoryRepository
+
+    calls = {}
+
+    def fake_run_study_turn(state, repository=None, quiz_generator=None, grader=None):
+        calls["grader"] = grader
+        state.status = "waiting_for_answer"
+        return state
+
+    monkeypatch.setattr("final_agent.api.app.run_study_turn", fake_run_study_turn)
+
+    service = AgentService(MemoryRepository(tmp_path / "api.sqlite"))
+    service.create_session(CreateSessionRequest(learning_goal="review CI", course_ids=[]))
+
+    assert calls["grader"] is service.grader

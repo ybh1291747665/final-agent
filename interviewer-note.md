@@ -351,3 +351,19 @@
 - **Verification:** `conda run -n final-agent python -m pytest tests/agent/test_quiz_generators.py tests/agent/test_tools.py tests/agent/test_graph.py tests/api/test_sessions.py -v`
 - **Result:** adapter 边界、fallback 语义和 app-level assembly 都有回归测试保护。
 - **Resume impact:** can mention explicit adapter injection and deterministic fallback policy
+
+### Issue: Grader adapter 需要和 quiz adapter 一样在启动时显式组装
+
+- **Date:** 2026-06-21
+- **Status:** resolved
+- **Where:** `src/final_agent/agent/graders.py`, `src/final_agent/agent/graph.py`, `src/final_agent/api/app.py`
+- **Symptom:** grading 逻辑原先只是一段固定规则，后续如果接 LLM 评分、保留 deterministic fallback，workflow 本身没有明确装配边界，也不方便在测试里替换实现。
+- **Root cause:** 第一版 Study Coach 为了先跑通闭环，把评分实现直接耦合在 workflow/tool 路径里，没有像 quiz generation 那样抽出 adapter seam。
+- **Options considered:**
+  - Option A: 继续在 tool 或 graph 内部隐式选择默认 grader，实现简单，但部署切换和测试注入都要改 workflow 代码。
+  - Option B: 新增 grader adapter，默认实现放到 service / app 注入层启动时组装，再一路透传到 workflow。
+- **Decision:** 选择 Option B。部署默认值使用 `LlmGrader(fallback=DeterministicGrader())`，把 fallback 留在 adapter 内部，workflow 只依赖统一评分接口。
+- **Fix:** 新增 `DeterministicGrader` 与 `LlmGrader`；`run_study_turn` 接收注入 grader 并把 `impl=...` / fallback reason 写进 trace；`AgentService` 与 `create_app()` 在启动时默认组装 LLM grader；保留 `materials` 参数以便后续把 grounded grading 接入同一 adapter 接口，而不需要再次改调用栈。
+- **Verification:** `conda run -n final-agent python -m pytest tests/agent/test_graders.py tests/agent/test_tools.py tests/agent/test_graph.py tests/api/test_sessions.py -v`
+- **Result:** grading seam、默认部署策略和 trace observability 都有测试覆盖，后续真实部署只需要在启动装配层替换 grader 实现。
+- **Resume impact:** can mention startup-time assembly and reserved `materials` hook for grounded grading
