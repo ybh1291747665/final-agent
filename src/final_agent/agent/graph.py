@@ -41,8 +41,27 @@ def select_tool(state: dict) -> dict:
     return agent_state.model_dump()
 
 
-def execute_tool(state: dict) -> dict:
-    return run_study_turn(AgentState.model_validate(state)).model_dump()
+def _run_study_turn_node(
+    state: dict,
+    repository=None,
+    quiz_generator=None,
+    grader=None,
+) -> dict:
+    return run_study_turn(
+        AgentState.model_validate(state),
+        repository=repository,
+        quiz_generator=quiz_generator,
+        grader=grader,
+    ).model_dump()
+
+
+def execute_tool(state: dict, repository=None, quiz_generator=None, grader=None) -> dict:
+    return _run_study_turn_node(
+        state,
+        repository=repository,
+        quiz_generator=quiz_generator,
+        grader=grader,
+    )
 
 
 def request_answer(state: dict) -> dict:
@@ -52,8 +71,13 @@ def request_answer(state: dict) -> dict:
     return agent_state.model_dump()
 
 
-def grade_answer_node(state: dict) -> dict:
-    return run_study_turn(AgentState.model_validate(state)).model_dump()
+def grade_answer_node(state: dict, repository=None, quiz_generator=None, grader=None) -> dict:
+    return _run_study_turn_node(
+        state,
+        repository=repository,
+        quiz_generator=quiz_generator,
+        grader=grader,
+    )
 
 
 def update_mastery_node(state: dict) -> dict:
@@ -192,19 +216,35 @@ def run_study_turn(state: AgentState, repository=None, quiz_generator=None, grad
     return state
 
 
-def build_graph(checkpointer=None):
+def build_graph(checkpointer=None, repository=None, quiz_generator=None, grader=None):
     try:
         from langgraph.graph import END, StateGraph
     except ModuleNotFoundError:
         return None
 
+    def execute_tool_with_dependencies(state: dict) -> dict:
+        return execute_tool(
+            state,
+            repository=repository,
+            quiz_generator=quiz_generator,
+            grader=grader,
+        )
+
+    def grade_answer_with_dependencies(state: dict) -> dict:
+        return grade_answer_node(
+            state,
+            repository=repository,
+            quiz_generator=quiz_generator,
+            grader=grader,
+        )
+
     graph = StateGraph(dict)
     graph.add_node("understand_goal", understand_goal)
     graph.add_node("create_plan", create_plan_node)
     graph.add_node("select_tool", select_tool)
-    graph.add_node("execute_tool", execute_tool)
+    graph.add_node("execute_tool", execute_tool_with_dependencies)
     graph.add_node("request_answer", request_answer)
-    graph.add_node("grade_answer", grade_answer_node)
+    graph.add_node("grade_answer", grade_answer_with_dependencies)
     graph.add_node("update_mastery", update_mastery_node)
     graph.add_node("choose_next_step", choose_next_step)
     graph.add_node("finish", finish)

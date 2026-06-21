@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 
 def test_graph_creates_plan_and_waits_for_answer(monkeypatch):
     from final_agent.agent.graph import run_study_turn
@@ -131,3 +133,55 @@ def test_graph_uses_injected_grader():
     assert updated.grade.feedback == "Injected grade"
     assert updated.tool_trace[-1].tool_name == "update_mastery"
     assert "impl=llm" in grade_trace.input_summary
+
+
+def test_build_graph_threads_injected_dependencies_for_fallback_grading():
+    from final_agent.agent.graph import build_graph
+    from final_agent.agent.models import AgentState, GradeResult, QuizQuestion
+
+    class FakeGenerator:
+        def generate_with_meta(self, topic, course_ids=None, count=1):
+            return (
+                QuizQuestion(
+                    question_id="quiz-fallback",
+                    topic=topic,
+                    prompt="Injected prompt",
+                    expected_points=["automation"],
+                ),
+                type("Meta", (), {"implementation": "llm", "fallback_reason": ""})(),
+            )
+
+    class FakeFallbackGrader:
+        def grade_with_meta(self, question, expected_points, learner_answer, *, materials=None):
+            return (
+                GradeResult(
+                    score=0.5,
+                    covered_points=["automation"],
+                    missed_points=["pipelines"],
+                    feedback="Fallback grade",
+                ),
+                type(
+                    "Meta",
+                    (),
+                    {
+                        "implementation": "deterministic-fallback",
+                        "fallback_reason": "LLM timeout",
+                    },
+                )(),
+            )
+
+    graph = build_graph(quiz_generator=FakeGenerator(), grader=FakeFallbackGrader())
+    if graph is None:
+        pytest.skip("langgraph not installed")
+
+    updated = AgentState.model_validate(
+        graph.invoke(AgentState(session_id="s1", learning_goal="review CI", learner_answer="automation matters").model_dump())
+    )
+
+    grade_trace = next(trace for trace in updated.tool_trace if trace.tool_name == "grade_answer")
+
+    assert updated.grade is not None
+    assert updated.grade.feedback == "Fallback grade"
+    assert "impl=deterministic-fallback" in grade_trace.input_summary
+    assert grade_trace.error == "LLM timeout"
+    assert updated.tool_trace[-1].tool_name == "update_mastery"
