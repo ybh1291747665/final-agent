@@ -3,6 +3,86 @@ from __future__ import annotations
 import json
 
 
+def test_build_rebuilds_only_ingested_course_and_registers_snapshot_path(tmp_path, monkeypatch):
+    from final_agent.knowledge import builder
+    from final_agent.knowledge.bm25_index import course_index_path
+    from final_agent.schemas import Chunk
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+    chunks = [
+        Chunk(chunk_id="a-new-1", doc_id="doc-a", course_id="course-a", text="automation testing"),
+        Chunk(chunk_id="a-new-2", doc_id="doc-a", course_id="course-a", text="ci pipelines"),
+    ]
+    all_chunks = [
+        Chunk(chunk_id="a-old", doc_id="doc-old", course_id="course-a", text="legacy automation"),
+        *chunks,
+        Chunk(chunk_id="b-1", doc_id="doc-b", course_id="course-b", text="database indexing"),
+    ]
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        builder,
+        "embed_chunks",
+        lambda received, *, settings: [(chunk, object()) for chunk in received],
+    )
+    monkeypatch.setattr(
+        builder,
+        "add_chunks",
+        lambda pairs, *, settings: recorded.setdefault("added_chunk_ids", [chunk.chunk_id for chunk, _ in pairs]),
+    )
+    monkeypatch.setattr(builder, "get_all_chunks", lambda *, settings: list(all_chunks))
+
+    def fake_build_index_for_course(course_id, scoped_chunks, *, settings):
+        recorded["rebuilt_course_id"] = course_id
+        recorded["rebuilt_chunk_ids"] = [chunk.chunk_id for chunk in scoped_chunks]
+        return len(scoped_chunks)
+
+    def fake_register_document(doc_id, source_path, chunk_count, settings=None, **kwargs):
+        recorded["registered"] = {
+            "doc_id": doc_id,
+            "source_path": source_path,
+            "chunk_count": chunk_count,
+            **kwargs,
+        }
+
+    monkeypatch.setattr(builder, "build_index_for_course", fake_build_index_for_course)
+    monkeypatch.setattr(builder, "register_document", fake_register_document)
+
+    summary = builder.build(chunks, source_path="course-a/lesson.md", settings=settings)
+
+    assert summary == {
+        "chunks": 2,
+        "doc_id": "doc-a",
+        "course_id": "course-a",
+        "bm25_scope_chunks": 3,
+    }
+    assert recorded["added_chunk_ids"] == ["a-new-1", "a-new-2"]
+    assert recorded["rebuilt_course_id"] == "course-a"
+    assert recorded["rebuilt_chunk_ids"] == ["a-old", "a-new-1", "a-new-2"]
+    assert recorded["registered"] == {
+        "doc_id": "doc-a",
+        "source_path": "course-a/lesson.md",
+        "chunk_count": 2,
+        "course_id": "course-a",
+        "bm25_snapshot_path": str(course_index_path("course-a", settings)),
+    }
+
+
+def test_build_empty_summary_matches_non_empty_shape():
+    from final_agent.knowledge import builder
+
+    summary = builder.build([])
+
+    assert summary == {
+        "chunks": 0,
+        "doc_id": "",
+        "course_id": "",
+        "bm25_scope_chunks": 0,
+    }
+
+
 def test_build_index_for_course_writes_course_snapshot(tmp_path):
     from final_agent.knowledge.bm25_index import build_index_for_course, course_index_path
     from final_agent.schemas import Chunk
@@ -197,6 +277,67 @@ def test_delete_by_doc_id_rebuilds_only_affected_course(tmp_path):
 
     assert removed == 2
     assert [chunk.chunk_id for chunk, _ in search("database", top_k=5, course_ids=["course-b"])] == ["b1"]
+
+
+def test_delete_by_doc_id_prefers_metadata_snapshot_path(tmp_path):
+    from final_agent.knowledge.bm25_index import course_index_path, delete_by_doc_id, ensure_course_loaded, search
+    from final_agent.knowledge.metadata import register_document
+    from final_agent.schemas import Chunk
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+
+    custom_snapshot_path = tmp_path / "custom-course-a-snapshot.json"
+    course_path = course_index_path("course-a", settings)
+
+    custom_chunks = [
+        Chunk(chunk_id="a1", doc_id="doc-a", course_id="course-a", text="automation testing"),
+        Chunk(chunk_id="a2", doc_id="doc-a", course_id="course-a", text="ci pipelines"),
+        Chunk(chunk_id="a3", doc_id="doc-keep", course_id="course-a", text="release process"),
+    ]
+    wrong_chunks = [
+        Chunk(chunk_id="wrong-1", doc_id="doc-wrong", course_id="course-a", text="stale snapshot"),
+    ]
+
+    custom_snapshot_path.write_text(
+        json.dumps(
+            {
+                "chunk_ids": [chunk.chunk_id for chunk in custom_chunks],
+                "chunks": [chunk.model_dump() for chunk in custom_chunks],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    course_path.write_text(
+        json.dumps(
+            {
+                "chunk_ids": [chunk.chunk_id for chunk in wrong_chunks],
+                "chunks": [chunk.model_dump() for chunk in wrong_chunks],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    register_document(
+        "doc-a",
+        "course-a/lesson.md",
+        2,
+        settings=settings,
+        course_id="course-a",
+        bm25_snapshot_path=str(custom_snapshot_path),
+    )
+
+    removed = delete_by_doc_id("doc-a", settings=settings, course_id="course-a")
+    ensure_course_loaded("course-a", settings=settings)
+
+    assert removed == 2
+    assert [chunk.chunk_id for chunk, _ in search("release", top_k=5, course_ids=["course-a"])] == ["a3"]
+    assert search("stale", top_k=5, course_ids=["course-a"]) == []
 
 
 def test_knowledge_package_reexports_bm25_helpers():

@@ -28,7 +28,12 @@ def build(
 
     if not chunks:
         logger.warning("build() called with 0 chunks; nothing to do")
-        return {"chunks": 0, "doc_id": "", "bm25_docs": 0}
+        return {
+            "chunks": 0,
+            "doc_id": "",
+            "course_id": "",
+            "bm25_scope_chunks": 0,
+        }
 
     doc_id = chunks[0].doc_id or "unknown"
     course_id = chunks[0].course_id or _DEFAULT_COURSE_ID

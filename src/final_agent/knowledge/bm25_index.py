@@ -105,12 +105,28 @@ def _resolve_course_id_for_doc(
     return _DEFAULT_COURSE_KEY
 
 
+def _resolve_snapshot_path_for_doc(
+    doc_id: str,
+    settings: Settings,
+) -> Path | None:
+    from final_agent.knowledge.metadata import list_documents
+
+    metadata = list_documents(settings=settings)
+    info = metadata.get(doc_id, {})
+    snapshot_path = info.get("bm25_snapshot_path", "")
+    if not snapshot_path:
+        return None
+    return Path(snapshot_path)
+
+
 def _load_course_snapshot_chunks(
     course_id: str,
     settings: Settings,
+    *,
+    snapshot_path: Path | None = None,
 ) -> list[Chunk]:
     normalized_course = _course_key(course_id)
-    path = course_index_path(normalized_course, settings)
+    path = snapshot_path or course_index_path(normalized_course, settings)
     if not path.exists():
         if _ACTIVE_COURSE_ID == normalized_course and _CHUNK_MAP_CACHE is not None:
             return list(_CHUNK_MAP_CACHE)
@@ -360,7 +376,12 @@ def delete_by_doc_id(
         settings = load_settings()
 
     resolved_course_id = _resolve_course_id_for_doc(doc_id, settings, course_id=course_id)
-    existing = _load_course_snapshot_chunks(resolved_course_id, settings)
+    snapshot_path = _resolve_snapshot_path_for_doc(doc_id, settings)
+    existing = _load_course_snapshot_chunks(
+        resolved_course_id,
+        settings,
+        snapshot_path=snapshot_path,
+    )
     remaining = [chunk for chunk in existing if chunk.doc_id != doc_id]
     removed = len(existing) - len(remaining)
 
