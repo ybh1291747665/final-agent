@@ -1,4 +1,4 @@
-"""BM25 sparse index — jieba tokenisation + JSON persistence."""
+"""BM25 sparse index with jieba tokenisation and JSON persistence."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+
 try:
     from rank_bm25 import BM25Okapi
 except ModuleNotFoundError:
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 _INDEX_CACHE: Optional[BM25Okapi] = None
 _CHUNK_MAP_CACHE: Optional[list[Chunk]] = None
 _ACTIVE_COURSE_ID: Optional[str] = None
+_DEFAULT_COURSE_KEY = ""
 
 
 def _bm25_index_path(settings: Settings) -> Path:
@@ -45,6 +47,29 @@ def _bm25_index_path(settings: Settings) -> Path:
 def course_index_path(course_id: str, settings: Settings) -> Path:
     normalized = course_id or "default"
     return Path(settings.vector_store.persist_dir) / f"bm25_{normalized}.json"
+
+
+def _course_key(course_id: str) -> str:
+    return course_id or _DEFAULT_COURSE_KEY
+
+
+def _snapshot_payload(chunks: list[Chunk]) -> dict[str, object]:
+    return {
+        "chunk_ids": [chunk.chunk_id for chunk in chunks],
+        "chunks": [chunk.model_dump() for chunk in chunks],
+    }
+
+
+def _restore_snapshot_chunks(data: dict[str, object]) -> list[Chunk]:
+    raw_chunks = data.get("chunks", [])
+    if not isinstance(raw_chunks, list):
+        return []
+
+    restored: list[Chunk] = []
+    for raw_chunk in raw_chunks:
+        if isinstance(raw_chunk, dict):
+            restored.append(Chunk.model_validate(raw_chunk))
+    return restored
 
 
 def _tokenize(text: str) -> list[str]:
@@ -68,10 +93,7 @@ def build_index(
     chunks: list[Chunk],
     settings: Settings | None = None,
 ) -> int:
-    """Build (or rebuild) the BM25 index from *all* chunks and persist to JSON.
-
-    This is a full rebuild — pass the complete chunk list (old + new).
-    """
+    """Build (or rebuild) the BM25 index from all chunks and persist to JSON."""
     global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
     if settings is None:
         settings = load_settings()
@@ -85,7 +107,7 @@ def build_index(
             path.unlink()
         return 0
 
-    tokenized = [_tokenize(c.text) for c in chunks]
+    tokenized = [_tokenize(chunk.text) for chunk in chunks]
     bm25 = BM25Okapi(tokenized)
     _INDEX_CACHE = bm25
     _CHUNK_MAP_CACHE = list(chunks)
@@ -100,7 +122,7 @@ def build_index(
         "k1": bm25.k1,
         "b": bm25.b,
         "epsilon": bm25.epsilon,
-        "chunk_ids": [c.chunk_id for c in chunks],
+        "chunk_ids": [chunk.chunk_id for chunk in chunks],
     }
     path = _bm25_index_path(settings)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,8 +141,8 @@ def build_index_for_course(
         settings = load_settings()
 
     path = course_index_path(course_id, settings)
-    normalized_course = course_id or "默认课程"
-    scoped = [chunk for chunk in chunks if (chunk.course_id or "默认课程") == normalized_course]
+    normalized_course = _course_key(course_id)
+    scoped = [chunk for chunk in chunks if _course_key(chunk.course_id) == normalized_course]
 
     if not scoped:
         if path.exists():
@@ -133,7 +155,7 @@ def build_index_for_course(
 
     tokenized = [_tokenize(chunk.text) for chunk in scoped]
     bm25 = BM25Okapi(tokenized)
-    data = {"chunk_ids": [chunk.chunk_id for chunk in scoped]}
+    data = _snapshot_payload(scoped)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -163,13 +185,12 @@ def load_index(
         return build_index(chunks, settings)
 
     persisted_ids = set(data.get("chunk_ids", []))
-    resolved = [c for c in chunks if c.chunk_id in persisted_ids]
+    resolved = [chunk for chunk in chunks if chunk.chunk_id in persisted_ids]
     if not resolved:
         return build_index(chunks, settings)
 
-    tokenized = [_tokenize(c.text) for c in resolved]
-    bm25 = BM25Okapi(tokenized)
-    _INDEX_CACHE = bm25
+    tokenized = [_tokenize(chunk.text) for chunk in resolved]
+    _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = resolved
     _ACTIVE_COURSE_ID = None
 
@@ -195,9 +216,15 @@ def ensure_course_loaded(
     if not path.exists():
         return build_index_for_course(course_id, scoped_chunks, settings=settings)
 
-    persisted = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        persisted = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, KeyError):
+        return build_index_for_course(course_id, scoped_chunks, settings=settings)
+
     allowed_ids = set(persisted.get("chunk_ids", []))
     resolved = [chunk for chunk in scoped_chunks if chunk.chunk_id in allowed_ids]
+    if not resolved:
+        resolved = _restore_snapshot_chunks(persisted)
     if not resolved:
         return build_index_for_course(course_id, scoped_chunks, settings=settings)
 
@@ -230,7 +257,6 @@ def search(
         overlap = len(token_set.intersection(_tokenize(chunk.text)))
         if scores[idx] <= 0 and overlap <= 0:
             continue
-        # Filter by course if requested
         if course_ids and course_ids[0] and chunk.course_id not in course_ids:
             continue
         results.append((chunk, float(scores[idx]) if scores[idx] > 0 else float(overlap)))
@@ -248,12 +274,12 @@ def delete_by_doc_id(
     doc_id: str,
     settings: Settings | None = None,
 ) -> int:
-    """Remove chunks with *doc_id* from BM25 index and rebuild."""
+    """Remove chunks with doc_id from BM25 index and rebuild."""
     global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
     if settings is None:
         settings = load_settings()
     existing = get_cached_chunks()
-    remaining = [c for c in existing if c.doc_id != doc_id]
+    remaining = [chunk for chunk in existing if chunk.doc_id != doc_id]
     removed = len(existing) - len(remaining)
     if removed > 0:
         if _ACTIVE_COURSE_ID is None:
