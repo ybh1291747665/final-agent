@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from final_agent.knowledge.bm25_index import search as bm25_search
+from final_agent.knowledge.bm25_index import ensure_course_loaded, search as bm25_search
 from final_agent.knowledge.embedder import embed_texts
-from final_agent.knowledge.vector_store import query as chroma_query
+from final_agent.knowledge.vector_store import get_all_chunks, query as chroma_query
 from final_agent.schemas import Chunk, ScoredChunk
 from final_agent.settings import Settings, load_settings
 
@@ -88,4 +88,14 @@ def _dense_retrieve(
 def _sparse_retrieve(
     query: str, top_k: int, settings: Settings | None = None, course_ids: list[str] | None = None
 ) -> list[tuple[Chunk, float]]:
+    if settings is None:
+        settings = load_settings()
+
+    course_id = course_ids[0] if course_ids and course_ids[0] else "默认课程"
+    chunks = [
+        chunk
+        for chunk in get_all_chunks(settings=settings)
+        if (chunk.course_id or "默认课程") == course_id
+    ]
+    ensure_course_loaded(course_id, settings=settings, chunks=chunks)
     return bm25_search(query, top_k=top_k, course_ids=course_ids)

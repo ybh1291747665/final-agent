@@ -16,3 +16,23 @@ def test_hybrid_search_rrf_boosts_chunks_found_by_both_paths(monkeypatch):
 
     assert [r.chunk.chunk_id for r in results][0] == "shared"
     assert {r.source for r in results} == {"rrf"}
+
+
+def test_hybrid_search_loads_sparse_scope_before_search(monkeypatch):
+    from final_agent.retrieval import hybrid_searcher
+    from final_agent.schemas import Chunk
+
+    calls: dict[str, object] = {}
+    shared = Chunk(chunk_id="shared", doc_id="doc-a", course_id="course-a", text="shared")
+
+    monkeypatch.setattr(hybrid_searcher, "_dense_retrieve", lambda *args, **kwargs: [(shared, 0.8)])
+    monkeypatch.setattr(
+        hybrid_searcher,
+        "ensure_course_loaded",
+        lambda course_id, **kwargs: calls.setdefault("course_id", course_id) or 1,
+    )
+    monkeypatch.setattr(hybrid_searcher, "bm25_search", lambda *args, **kwargs: [(shared, 2.0)])
+
+    hybrid_searcher.hybrid_search("query", top_k=3, course_ids=["course-a"])
+
+    assert calls["course_id"] == "course-a"
