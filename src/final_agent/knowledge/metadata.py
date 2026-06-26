@@ -46,16 +46,19 @@ def register_document(
     settings: Settings | None = None,
     *,
     course_id: str = "",
+    bm25_snapshot_path: str = "",
 ) -> None:
     """Record a document in the metadata store."""
     if settings is None:
         settings = load_settings()
     data = _load(settings)
+    normalized_course = course_id or "默认课程"
     data["documents"][doc_id] = {
         "source_path": str(source_path),
         "chunk_count": chunk_count,
-        "course_id": course_id or "默认课程",
+        "course_id": normalized_course,
         "imported_at": datetime.now().isoformat(),
+        "bm25_snapshot_path": bm25_snapshot_path,
     }
     _save(settings)
     logger.info("Metadata: registered doc_id=%s (%d chunks)", doc_id, chunk_count)
@@ -101,3 +104,27 @@ def list_courses(settings: Settings | None = None) -> list[str]:
         if cid:
             courses.add(cid)
     return sorted(courses)
+
+
+def list_course_index_info(settings: Settings | None = None) -> dict[str, dict]:
+    """Return aggregated metadata for each course."""
+    if settings is None:
+        settings = load_settings()
+    grouped: dict[str, dict] = {}
+    for doc_id, info in list_documents(settings).items():
+        course_id = info.get("course_id", "默认课程")
+        bucket = grouped.setdefault(
+            course_id,
+            {
+                "chunk_count": 0,
+                "doc_ids": [],
+                "bm25_snapshot_path": info.get("bm25_snapshot_path", ""),
+            },
+        )
+        bucket["chunk_count"] += int(info.get("chunk_count", 0))
+        bucket["doc_ids"].append(doc_id)
+        if not bucket["bm25_snapshot_path"]:
+            bucket["bm25_snapshot_path"] = info.get("bm25_snapshot_path", "")
+    for course_id in grouped:
+        grouped[course_id]["doc_ids"].sort()
+    return grouped
