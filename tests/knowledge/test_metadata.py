@@ -2,6 +2,17 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def reset_metadata_cache():
+    from final_agent.knowledge import metadata
+
+    metadata._METADATA_CACHE = None
+    yield
+    metadata._METADATA_CACHE = None
+
 
 def test_register_document_tracks_course_snapshot_path(tmp_path):
     from final_agent.knowledge import metadata
@@ -47,7 +58,6 @@ def test_remove_document_updates_course_chunk_totals_and_sorts_doc_ids(tmp_path)
 
     assert metadata.remove_document("doc-a", settings=settings) is True
 
-    metadata._METADATA_CACHE = None
     info = metadata.list_course_index_info(settings)
     assert info["course-a"]["chunk_count"] == 3
     assert info["course-a"]["doc_ids"] == ["doc-b", "doc-c"]
