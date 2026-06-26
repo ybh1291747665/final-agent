@@ -176,6 +176,29 @@ def test_search_single_document_scope_returns_overlap_match(tmp_path):
     assert [chunk.chunk_id for chunk, _ in results] == ["s1"]
 
 
+def test_delete_by_doc_id_rebuilds_only_affected_course(tmp_path):
+    from final_agent.knowledge.bm25_index import build_index_for_course, delete_by_doc_id, ensure_course_loaded, search
+    from final_agent.schemas import Chunk
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+    course_a = [
+        Chunk(chunk_id="a1", doc_id="doc-a", course_id="course-a", text="automation testing"),
+        Chunk(chunk_id="a2", doc_id="doc-a", course_id="course-a", text="ci pipelines"),
+    ]
+    course_b = [Chunk(chunk_id="b1", doc_id="doc-b", course_id="course-b", text="database indexing")]
+
+    build_index_for_course("course-a", course_a, settings=settings)
+    build_index_for_course("course-b", course_b, settings=settings)
+
+    removed = delete_by_doc_id("doc-a", settings=settings, course_id="course-a")
+    ensure_course_loaded("course-b", settings=settings, chunks=course_b)
+
+    assert removed == 2
+    assert [chunk.chunk_id for chunk, _ in search("database", top_k=5, course_ids=["course-b"])] == ["b1"]
+
+
 def test_knowledge_package_reexports_bm25_helpers():
     from final_agent.knowledge import build_index_for_course, course_index_path, ensure_course_loaded
 

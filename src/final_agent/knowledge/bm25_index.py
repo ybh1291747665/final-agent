@@ -85,6 +85,54 @@ def _restore_snapshot_chunks(data: dict[str, object]) -> list[Chunk]:
     return restored
 
 
+def _resolve_course_id_for_doc(
+    doc_id: str,
+    settings: Settings,
+    course_id: str = "",
+) -> str:
+    if course_id:
+        return _course_key(course_id)
+
+    from final_agent.knowledge.metadata import list_documents
+
+    metadata = list_documents(settings=settings)
+    info = metadata.get(doc_id, {})
+    resolved = info.get("course_id", "")
+    if resolved:
+        return _course_key(resolved)
+    if _ACTIVE_COURSE_ID:
+        return _ACTIVE_COURSE_ID
+    return _DEFAULT_COURSE_KEY
+
+
+def _load_course_snapshot_chunks(
+    course_id: str,
+    settings: Settings,
+) -> list[Chunk]:
+    normalized_course = _course_key(course_id)
+    path = course_index_path(normalized_course, settings)
+    if not path.exists():
+        if _ACTIVE_COURSE_ID == normalized_course and _CHUNK_MAP_CACHE is not None:
+            return list(_CHUNK_MAP_CACHE)
+        return []
+
+    try:
+        persisted = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, KeyError):
+        return []
+
+    restored = _restore_snapshot_chunks(persisted)
+    if restored:
+        return restored
+
+    allowed_ids = set(persisted.get("chunk_ids", []))
+    if _ACTIVE_COURSE_ID == normalized_course and _CHUNK_MAP_CACHE is not None:
+        cached = [chunk for chunk in _CHUNK_MAP_CACHE if chunk.chunk_id in allowed_ids]
+        if len(cached) == len(allowed_ids):
+            return cached
+    return []
+
+
 def _tokenize(text: str) -> list[str]:
     try:
         with warnings.catch_warnings():
@@ -304,18 +352,27 @@ def get_cached_chunks() -> list[Chunk]:
 def delete_by_doc_id(
     doc_id: str,
     settings: Settings | None = None,
+    *,
+    course_id: str = "",
 ) -> int:
-    """Remove chunks with doc_id from BM25 index and rebuild."""
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    """Remove chunks with doc_id from a course snapshot and rebuild that course."""
     if settings is None:
         settings = load_settings()
-    existing = get_cached_chunks()
+
+    resolved_course_id = _resolve_course_id_for_doc(doc_id, settings, course_id=course_id)
+    existing = _load_course_snapshot_chunks(resolved_course_id, settings)
     remaining = [chunk for chunk in existing if chunk.doc_id != doc_id]
     removed = len(existing) - len(remaining)
-    if removed > 0:
-        if _ACTIVE_COURSE_ID is None:
-            build_index(remaining, settings=settings)
-        else:
-            build_index_for_course(_ACTIVE_COURSE_ID, remaining, settings=settings)
-        logger.info("BM25: removed %d chunks (doc_id=%s), %d remain", removed, doc_id, len(remaining))
+
+    if removed <= 0:
+        return 0
+
+    build_index_for_course(resolved_course_id, remaining, settings=settings)
+    logger.info(
+        "BM25: removed %d chunks (doc_id=%s) from course=%s, %d remain",
+        removed,
+        doc_id,
+        resolved_course_id,
+        len(remaining),
+    )
     return removed
