@@ -25,6 +25,25 @@ def test_build_index_for_course_writes_course_snapshot(tmp_path):
     assert [chunk["chunk_id"] for chunk in persisted["chunks"]] == ["a1", "a2"]
 
 
+def test_course_index_path_sanitizes_separators_and_avoids_collisions(tmp_path):
+    from final_agent.knowledge.bm25_index import course_index_path
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+
+    slash_path = course_index_path("course/a", settings)
+    backslash_path = course_index_path(r"course\a", settings)
+
+    assert slash_path.parent == tmp_path
+    assert backslash_path.parent == tmp_path
+    assert "/" not in slash_path.name
+    assert "\\" not in slash_path.name
+    assert "/" not in backslash_path.name
+    assert "\\" not in backslash_path.name
+    assert slash_path != backslash_path
+
+
 def test_ensure_course_loaded_switches_sparse_cache(tmp_path):
     from final_agent.knowledge.bm25_index import build_index_for_course, ensure_course_loaded, search
     from final_agent.schemas import Chunk
@@ -52,6 +71,31 @@ def test_ensure_course_loaded_switches_sparse_cache(tmp_path):
     assert count == 1
     assert [chunk.chunk_id for chunk, _ in results] == ["b1"]
     assert stale_results == []
+
+
+def test_ensure_course_loaded_restores_full_snapshot_when_given_partial_chunks(tmp_path):
+    from final_agent.knowledge.bm25_index import build_index_for_course, ensure_course_loaded, get_cached_chunks
+    from final_agent.schemas import Chunk
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+    full_chunks = [
+        Chunk(chunk_id="a1", doc_id="doc-a", course_id="course-a", text="automation testing"),
+        Chunk(chunk_id="a2", doc_id="doc-a", course_id="course-a", text="branching strategy"),
+    ]
+    build_index_for_course("course-a", full_chunks, settings=settings)
+    build_index_for_course(
+        "course-b",
+        [Chunk(chunk_id="b1", doc_id="doc-b", course_id="course-b", text="database indexing")],
+        settings=settings,
+    )
+
+    count = ensure_course_loaded("course-a", settings=settings, chunks=[full_chunks[0]])
+    cached_chunks = get_cached_chunks()
+
+    assert count == 2
+    assert [chunk.chunk_id for chunk in cached_chunks] == ["a1", "a2"]
 
 
 def test_ensure_course_loaded_switches_same_course_across_persist_roots(tmp_path):
@@ -130,3 +174,11 @@ def test_search_single_document_scope_returns_overlap_match(tmp_path):
     results = search("database", top_k=5, course_ids=["course-single"])
 
     assert [chunk.chunk_id for chunk, _ in results] == ["s1"]
+
+
+def test_knowledge_package_reexports_bm25_helpers():
+    from final_agent.knowledge import build_index_for_course, course_index_path, ensure_course_loaded
+
+    assert callable(build_index_for_course)
+    assert callable(course_index_path)
+    assert callable(ensure_course_loaded)

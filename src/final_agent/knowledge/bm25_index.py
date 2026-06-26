@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -38,22 +40,30 @@ _INDEX_CACHE: Optional[BM25Okapi] = None
 _CHUNK_MAP_CACHE: Optional[list[Chunk]] = None
 _ACTIVE_COURSE_ID: Optional[str] = None
 _ACTIVE_SNAPSHOT_PATH: Optional[Path] = None
-_DEFAULT_COURSE_KEY = "默认课程"
+_DEFAULT_COURSE_KEY = "\u9ed8\u8ba4\u8bfe\u7a0b"
 
 
 def _bm25_index_path(settings: Settings) -> Path:
     return Path(settings.vector_store.persist_dir) / "bm25_index.json"
 
 
-def course_index_path(course_id: str, settings: Settings) -> Path:
-    normalized = _course_key(course_id)
-    if normalized == _DEFAULT_COURSE_KEY:
-        normalized = "default"
-    return Path(settings.vector_store.persist_dir) / f"bm25_{normalized}.json"
-
-
 def _course_key(course_id: str) -> str:
     return course_id or _DEFAULT_COURSE_KEY
+
+
+def _course_slug(course_id: str) -> str:
+    normalized = _course_key(course_id)
+    if normalized == _DEFAULT_COURSE_KEY:
+        return "default"
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", normalized).strip("-._")
+    return slug or "course"
+
+
+def course_index_path(course_id: str, settings: Settings) -> Path:
+    normalized = _course_key(course_id)
+    slug = _course_slug(course_id)
+    digest = hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:10]
+    return Path(settings.vector_store.persist_dir) / f"bm25_{slug}_{digest}.json"
 
 
 def _snapshot_payload(chunks: list[Chunk]) -> dict[str, object]:
@@ -87,8 +97,6 @@ def _tokenize(text: str) -> list[str]:
 
         return [t.strip() for t in jieba.cut(text) if t.strip()]
     except ModuleNotFoundError:
-        import re
-
         return [t for t in re.split(r"\W+", text.lower()) if t]
 
 
@@ -161,15 +169,14 @@ def build_index_for_course(
         return 0
 
     tokenized = [_tokenize(chunk.text) for chunk in scoped]
-    bm25 = BM25Okapi(tokenized)
-    data = _snapshot_payload(scoped)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    _INDEX_CACHE = bm25
+    _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = scoped
     _ACTIVE_COURSE_ID = normalized_course
     _ACTIVE_SNAPSHOT_PATH = snapshot_path
+
+    data = _snapshot_payload(scoped)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info("BM25 course index built: %s -> %d chunks", course_id, len(scoped))
     return len(scoped)
 
@@ -238,8 +245,10 @@ def ensure_course_loaded(
         return build_index_for_course(course_id, scoped_chunks, settings=settings)
 
     allowed_ids = set(persisted.get("chunk_ids", []))
-    resolved = [chunk for chunk in scoped_chunks if chunk.chunk_id in allowed_ids]
-    if not resolved:
+    provided = [chunk for chunk in scoped_chunks if chunk.chunk_id in allowed_ids]
+    if allowed_ids and {chunk.chunk_id for chunk in provided} == allowed_ids:
+        resolved = provided
+    else:
         resolved = _restore_snapshot_chunks(persisted)
     if not resolved:
         return build_index_for_course(course_id, scoped_chunks, settings=settings)
@@ -266,17 +275,22 @@ def search(
     token_set = set(tokens)
     scores = _INDEX_CACHE.get_scores(tokens)
     top_indices = np.argsort(scores)[::-1]
+    use_overlap_fallback = len(_CHUNK_MAP_CACHE) == 1
     results: list[tuple[Chunk, float]] = []
     for idx in top_indices:
         if idx >= len(_CHUNK_MAP_CACHE):
             continue
         chunk = _CHUNK_MAP_CACHE[idx]
         overlap = len(token_set.intersection(_tokenize(chunk.text)))
-        if scores[idx] <= 0 and overlap <= 0:
-            continue
+        if scores[idx] <= 0:
+            if not use_overlap_fallback or overlap <= 0:
+                continue
+            score = float(overlap)
+        else:
+            score = float(scores[idx])
         if course_ids and course_ids[0] and chunk.course_id not in course_ids:
             continue
-        results.append((chunk, float(scores[idx]) if scores[idx] > 0 else float(overlap)))
+        results.append((chunk, score))
         if len(results) >= top_k:
             break
     return results
