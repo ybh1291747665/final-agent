@@ -331,11 +331,22 @@ def test_delete_by_doc_id_prefers_metadata_snapshot_path(tmp_path):
         course_id="course-a",
         bm25_snapshot_path=str(custom_snapshot_path),
     )
+    register_document(
+        "doc-keep",
+        "course-a/keep.md",
+        1,
+        settings=settings,
+        course_id="course-a",
+        bm25_snapshot_path=str(custom_snapshot_path),
+    )
 
     removed = delete_by_doc_id("doc-a", settings=settings, course_id="course-a")
     ensure_course_loaded("course-a", settings=settings)
+    persisted = json.loads(custom_snapshot_path.read_text(encoding="utf-8"))
 
     assert removed == 2
+    assert persisted["chunk_ids"] == ["a3"]
+    assert [chunk["chunk_id"] for chunk in persisted["chunks"]] == ["a3"]
     assert [chunk.chunk_id for chunk, _ in search("release", top_k=5, course_ids=["course-a"])] == ["a3"]
     assert search("stale", top_k=5, course_ids=["course-a"]) == []
 

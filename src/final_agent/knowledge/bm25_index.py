@@ -119,6 +119,23 @@ def _resolve_snapshot_path_for_doc(
     return Path(snapshot_path)
 
 
+def _resolve_snapshot_path_for_course(
+    course_id: str,
+    settings: Settings,
+) -> Path | None:
+    from final_agent.knowledge.metadata import list_documents
+
+    normalized_course = _course_key(course_id)
+    metadata = list_documents(settings=settings)
+    for info in metadata.values():
+        if _course_key(info.get("course_id", "")) != normalized_course:
+            continue
+        snapshot_path = info.get("bm25_snapshot_path", "")
+        if snapshot_path:
+            return Path(snapshot_path)
+    return None
+
+
 def _load_course_snapshot_chunks(
     course_id: str,
     settings: Settings,
@@ -212,12 +229,14 @@ def build_index_for_course(
     course_id: str,
     chunks: list[Chunk],
     settings: Settings | None = None,
+    *,
+    snapshot_path: Path | None = None,
 ) -> int:
     global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID, _ACTIVE_SNAPSHOT_PATH
     if settings is None:
         settings = load_settings()
 
-    path = course_index_path(course_id, settings)
+    path = snapshot_path or course_index_path(course_id, settings)
     snapshot_path = path.resolve()
     normalized_course = _course_key(course_id)
     scoped = [chunk for chunk in chunks if _course_key(chunk.course_id) == normalized_course]
@@ -289,7 +308,7 @@ def ensure_course_loaded(
         settings = load_settings()
 
     scoped_chunks = list(chunks or [])
-    path = course_index_path(course_id, settings)
+    path = _resolve_snapshot_path_for_course(course_id, settings) or course_index_path(course_id, settings)
     snapshot_path = path.resolve()
     normalized_course = _course_key(course_id)
     if (
@@ -301,12 +320,12 @@ def ensure_course_loaded(
         return len(_CHUNK_MAP_CACHE)
 
     if not path.exists():
-        return build_index_for_course(course_id, scoped_chunks, settings=settings)
+        return build_index_for_course(course_id, scoped_chunks, settings=settings, snapshot_path=path)
 
     try:
         persisted = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, KeyError):
-        return build_index_for_course(course_id, scoped_chunks, settings=settings)
+        return build_index_for_course(course_id, scoped_chunks, settings=settings, snapshot_path=path)
 
     allowed_ids = set(persisted.get("chunk_ids", []))
     provided = [chunk for chunk in scoped_chunks if chunk.chunk_id in allowed_ids]
@@ -315,7 +334,7 @@ def ensure_course_loaded(
     else:
         resolved = _restore_snapshot_chunks(persisted)
     if not resolved:
-        return build_index_for_course(course_id, scoped_chunks, settings=settings)
+        return build_index_for_course(course_id, scoped_chunks, settings=settings, snapshot_path=path)
 
     tokenized = [_tokenize(chunk.text) for chunk in resolved]
     _INDEX_CACHE = BM25Okapi(tokenized)
@@ -388,7 +407,12 @@ def delete_by_doc_id(
     if removed <= 0:
         return 0
 
-    build_index_for_course(resolved_course_id, remaining, settings=settings)
+    build_index_for_course(
+        resolved_course_id,
+        remaining,
+        settings=settings,
+        snapshot_path=snapshot_path,
+    )
     logger.info(
         "BM25: removed %d chunks (doc_id=%s) from course=%s, %d remain",
         removed,
