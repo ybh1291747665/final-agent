@@ -35,10 +35,16 @@ logger = logging.getLogger(__name__)
 
 _INDEX_CACHE: Optional[BM25Okapi] = None
 _CHUNK_MAP_CACHE: Optional[list[Chunk]] = None
+_ACTIVE_COURSE_ID: Optional[str] = None
 
 
 def _bm25_index_path(settings: Settings) -> Path:
     return Path(settings.vector_store.persist_dir) / "bm25_index.json"
+
+
+def course_index_path(course_id: str, settings: Settings) -> Path:
+    normalized = course_id or "default"
+    return Path(settings.vector_store.persist_dir) / f"bm25_{normalized}.json"
 
 
 def _tokenize(text: str) -> list[str]:
@@ -66,13 +72,14 @@ def build_index(
 
     This is a full rebuild — pass the complete chunk list (old + new).
     """
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
     if settings is None:
         settings = load_settings()
 
     if not chunks:
         _INDEX_CACHE = None
         _CHUNK_MAP_CACHE = None
+        _ACTIVE_COURSE_ID = None
         path = _bm25_index_path(settings)
         if path.exists():
             path.unlink()
@@ -82,6 +89,7 @@ def build_index(
     bm25 = BM25Okapi(tokenized)
     _INDEX_CACHE = bm25
     _CHUNK_MAP_CACHE = list(chunks)
+    _ACTIVE_COURSE_ID = None
 
     data = {
         "corpus_size": bm25.corpus_size,
@@ -101,12 +109,47 @@ def build_index(
     return len(chunks)
 
 
+def build_index_for_course(
+    course_id: str,
+    chunks: list[Chunk],
+    settings: Settings | None = None,
+) -> int:
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    if settings is None:
+        settings = load_settings()
+
+    path = course_index_path(course_id, settings)
+    normalized_course = course_id or "默认课程"
+    scoped = [chunk for chunk in chunks if (chunk.course_id or "默认课程") == normalized_course]
+
+    if not scoped:
+        if path.exists():
+            path.unlink()
+        if _ACTIVE_COURSE_ID == course_id:
+            _INDEX_CACHE = None
+            _CHUNK_MAP_CACHE = None
+            _ACTIVE_COURSE_ID = None
+        return 0
+
+    tokenized = [_tokenize(chunk.text) for chunk in scoped]
+    bm25 = BM25Okapi(tokenized)
+    data = {"chunk_ids": [chunk.chunk_id for chunk in scoped]}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    _INDEX_CACHE = bm25
+    _CHUNK_MAP_CACHE = scoped
+    _ACTIVE_COURSE_ID = course_id
+    logger.info("BM25 course index built: %s -> %d chunks", course_id, len(scoped))
+    return len(scoped)
+
+
 def load_index(
     chunks: list[Chunk],
     settings: Settings | None = None,
 ) -> int:
     """Restore BM25 index from JSON. Falls back to build_index if missing."""
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
     if settings is None:
         settings = load_settings()
     path = _bm25_index_path(settings)
@@ -128,8 +171,41 @@ def load_index(
     bm25 = BM25Okapi(tokenized)
     _INDEX_CACHE = bm25
     _CHUNK_MAP_CACHE = resolved
+    _ACTIVE_COURSE_ID = None
 
     logger.info("BM25 index loaded: %d chunks from %s", len(resolved), path)
+    return len(resolved)
+
+
+def ensure_course_loaded(
+    course_id: str,
+    *,
+    settings: Settings | None = None,
+    chunks: list[Chunk] | None = None,
+) -> int:
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    if settings is None:
+        settings = load_settings()
+
+    if _ACTIVE_COURSE_ID == course_id and _INDEX_CACHE is not None and _CHUNK_MAP_CACHE is not None:
+        return len(_CHUNK_MAP_CACHE)
+
+    scoped_chunks = list(chunks or [])
+    path = course_index_path(course_id, settings)
+    if not path.exists():
+        return build_index_for_course(course_id, scoped_chunks, settings=settings)
+
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    allowed_ids = set(persisted.get("chunk_ids", []))
+    resolved = [chunk for chunk in scoped_chunks if chunk.chunk_id in allowed_ids]
+    if not resolved:
+        return build_index_for_course(course_id, scoped_chunks, settings=settings)
+
+    tokenized = [_tokenize(chunk.text) for chunk in resolved]
+    _INDEX_CACHE = BM25Okapi(tokenized)
+    _CHUNK_MAP_CACHE = resolved
+    _ACTIVE_COURSE_ID = course_id
+    logger.info("BM25 course index loaded: %s -> %d chunks", course_id, len(resolved))
     return len(resolved)
 
 
@@ -143,17 +219,21 @@ def search(
     if _INDEX_CACHE is None or _CHUNK_MAP_CACHE is None:
         raise RuntimeError("BM25 index not loaded. Call load_index() first.")
     tokens = _tokenize(query)
+    token_set = set(tokens)
     scores = _INDEX_CACHE.get_scores(tokens)
     top_indices = np.argsort(scores)[::-1]
     results: list[tuple[Chunk, float]] = []
     for idx in top_indices:
-        if idx >= len(_CHUNK_MAP_CACHE) or scores[idx] <= 0:
+        if idx >= len(_CHUNK_MAP_CACHE):
             continue
         chunk = _CHUNK_MAP_CACHE[idx]
+        overlap = len(token_set.intersection(_tokenize(chunk.text)))
+        if scores[idx] <= 0 and overlap <= 0:
+            continue
         # Filter by course if requested
         if course_ids and course_ids[0] and chunk.course_id not in course_ids:
             continue
-        results.append((chunk, float(scores[idx])))
+        results.append((chunk, float(scores[idx]) if scores[idx] > 0 else float(overlap)))
         if len(results) >= top_k:
             break
     return results
@@ -169,13 +249,16 @@ def delete_by_doc_id(
     settings: Settings | None = None,
 ) -> int:
     """Remove chunks with *doc_id* from BM25 index and rebuild."""
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
     if settings is None:
         settings = load_settings()
     existing = get_cached_chunks()
     remaining = [c for c in existing if c.doc_id != doc_id]
     removed = len(existing) - len(remaining)
     if removed > 0:
-        build_index(remaining, settings=settings)
+        if _ACTIVE_COURSE_ID is None:
+            build_index(remaining, settings=settings)
+        else:
+            build_index_for_course(_ACTIVE_COURSE_ID, remaining, settings=settings)
         logger.info("BM25: removed %d chunks (doc_id=%s), %d remain", removed, doc_id, len(remaining))
     return removed
