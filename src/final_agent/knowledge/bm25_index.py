@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 _INDEX_CACHE: Optional[BM25Okapi] = None
 _CHUNK_MAP_CACHE: Optional[list[Chunk]] = None
 _ACTIVE_COURSE_ID: Optional[str] = None
-_DEFAULT_COURSE_KEY = ""
+_ACTIVE_SNAPSHOT_PATH: Optional[Path] = None
+_DEFAULT_COURSE_KEY = "默认课程"
 
 
 def _bm25_index_path(settings: Settings) -> Path:
@@ -45,7 +46,9 @@ def _bm25_index_path(settings: Settings) -> Path:
 
 
 def course_index_path(course_id: str, settings: Settings) -> Path:
-    normalized = course_id or "default"
+    normalized = _course_key(course_id)
+    if normalized == _DEFAULT_COURSE_KEY:
+        normalized = "default"
     return Path(settings.vector_store.persist_dir) / f"bm25_{normalized}.json"
 
 
@@ -94,7 +97,7 @@ def build_index(
     settings: Settings | None = None,
 ) -> int:
     """Build (or rebuild) the BM25 index from all chunks and persist to JSON."""
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID, _ACTIVE_SNAPSHOT_PATH
     if settings is None:
         settings = load_settings()
 
@@ -102,6 +105,7 @@ def build_index(
         _INDEX_CACHE = None
         _CHUNK_MAP_CACHE = None
         _ACTIVE_COURSE_ID = None
+        _ACTIVE_SNAPSHOT_PATH = None
         path = _bm25_index_path(settings)
         if path.exists():
             path.unlink()
@@ -112,6 +116,7 @@ def build_index(
     _INDEX_CACHE = bm25
     _CHUNK_MAP_CACHE = list(chunks)
     _ACTIVE_COURSE_ID = None
+    _ACTIVE_SNAPSHOT_PATH = None
 
     data = {
         "corpus_size": bm25.corpus_size,
@@ -136,21 +141,23 @@ def build_index_for_course(
     chunks: list[Chunk],
     settings: Settings | None = None,
 ) -> int:
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID, _ACTIVE_SNAPSHOT_PATH
     if settings is None:
         settings = load_settings()
 
     path = course_index_path(course_id, settings)
+    snapshot_path = path.resolve()
     normalized_course = _course_key(course_id)
     scoped = [chunk for chunk in chunks if _course_key(chunk.course_id) == normalized_course]
 
     if not scoped:
         if path.exists():
             path.unlink()
-        if _ACTIVE_COURSE_ID == course_id:
+        if _ACTIVE_COURSE_ID == normalized_course and _ACTIVE_SNAPSHOT_PATH == snapshot_path:
             _INDEX_CACHE = None
             _CHUNK_MAP_CACHE = None
             _ACTIVE_COURSE_ID = None
+            _ACTIVE_SNAPSHOT_PATH = None
         return 0
 
     tokenized = [_tokenize(chunk.text) for chunk in scoped]
@@ -161,7 +168,8 @@ def build_index_for_course(
 
     _INDEX_CACHE = bm25
     _CHUNK_MAP_CACHE = scoped
-    _ACTIVE_COURSE_ID = course_id
+    _ACTIVE_COURSE_ID = normalized_course
+    _ACTIVE_SNAPSHOT_PATH = snapshot_path
     logger.info("BM25 course index built: %s -> %d chunks", course_id, len(scoped))
     return len(scoped)
 
@@ -171,7 +179,7 @@ def load_index(
     settings: Settings | None = None,
 ) -> int:
     """Restore BM25 index from JSON. Falls back to build_index if missing."""
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID, _ACTIVE_SNAPSHOT_PATH
     if settings is None:
         settings = load_settings()
     path = _bm25_index_path(settings)
@@ -193,6 +201,7 @@ def load_index(
     _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = resolved
     _ACTIVE_COURSE_ID = None
+    _ACTIVE_SNAPSHOT_PATH = None
 
     logger.info("BM25 index loaded: %d chunks from %s", len(resolved), path)
     return len(resolved)
@@ -204,15 +213,22 @@ def ensure_course_loaded(
     settings: Settings | None = None,
     chunks: list[Chunk] | None = None,
 ) -> int:
-    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID
+    global _INDEX_CACHE, _CHUNK_MAP_CACHE, _ACTIVE_COURSE_ID, _ACTIVE_SNAPSHOT_PATH
     if settings is None:
         settings = load_settings()
 
-    if _ACTIVE_COURSE_ID == course_id and _INDEX_CACHE is not None and _CHUNK_MAP_CACHE is not None:
-        return len(_CHUNK_MAP_CACHE)
-
     scoped_chunks = list(chunks or [])
     path = course_index_path(course_id, settings)
+    snapshot_path = path.resolve()
+    normalized_course = _course_key(course_id)
+    if (
+        _ACTIVE_COURSE_ID == normalized_course
+        and _ACTIVE_SNAPSHOT_PATH == snapshot_path
+        and _INDEX_CACHE is not None
+        and _CHUNK_MAP_CACHE is not None
+    ):
+        return len(_CHUNK_MAP_CACHE)
+
     if not path.exists():
         return build_index_for_course(course_id, scoped_chunks, settings=settings)
 
@@ -231,7 +247,8 @@ def ensure_course_loaded(
     tokenized = [_tokenize(chunk.text) for chunk in resolved]
     _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = resolved
-    _ACTIVE_COURSE_ID = course_id
+    _ACTIVE_COURSE_ID = normalized_course
+    _ACTIVE_SNAPSHOT_PATH = snapshot_path
     logger.info("BM25 course index loaded: %s -> %d chunks", course_id, len(resolved))
     return len(resolved)
 
