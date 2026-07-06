@@ -26,8 +26,10 @@ def _load(settings: Settings) -> dict:
     path = _metadata_path(settings)
     if path.exists():
         _METADATA_CACHE = json.loads(path.read_text(encoding="utf-8"))
+        _METADATA_CACHE.setdefault("documents", {})
+        _METADATA_CACHE.setdefault("courses", [])
     else:
-        _METADATA_CACHE = {"documents": {}}
+        _METADATA_CACHE = {"documents": {}, "courses": []}
     return _METADATA_CACHE
 
 
@@ -98,7 +100,8 @@ def list_courses(settings: Settings | None = None) -> list[str]:
     """Return distinct course IDs from registered documents."""
     if settings is None:
         settings = load_settings()
-    courses: set[str] = set()
+    data = _load(settings)
+    courses: set[str] = {course for course in data.get("courses", []) if course}
     for info in list_documents(settings).values():
         cid = info.get("course_id", "默认课程")
         if cid:
@@ -106,11 +109,37 @@ def list_courses(settings: Settings | None = None) -> list[str]:
     return sorted(courses)
 
 
+def create_course(course_id: str, settings: Settings | None = None) -> bool:
+    """Create an empty course so it can be selected before documents exist."""
+    if settings is None:
+        settings = load_settings()
+    normalized = course_id.strip()
+    if not normalized:
+        raise ValueError("course_id must not be empty")
+    data = _load(settings)
+    courses = set(data.setdefault("courses", []))
+    if normalized in courses:
+        return False
+    courses.add(normalized)
+    data["courses"] = sorted(courses)
+    _save(settings)
+    return True
+
+
 def list_course_index_info(settings: Settings | None = None) -> dict[str, dict]:
     """Return aggregated metadata for each course."""
     if settings is None:
         settings = load_settings()
-    grouped: dict[str, dict] = {}
+    data = _load(settings)
+    grouped: dict[str, dict] = {
+        course_id: {
+            "chunk_count": 0,
+            "doc_ids": [],
+            "bm25_snapshot_path": "",
+        }
+        for course_id in data.get("courses", [])
+        if course_id
+    }
     for doc_id, info in list_documents(settings).items():
         course_id = info.get("course_id", "默认课程")
         bucket = grouped.setdefault(

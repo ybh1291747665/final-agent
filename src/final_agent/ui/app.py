@@ -18,7 +18,7 @@ ENV_PATH = PROJECT_ROOT / ".env"
 CONV_PATH = DATA_DIR / "conversations.json"
 
 from final_agent.ingestion import import_document
-from final_agent.knowledge import build, bm25_load, list_documents, metadata_total, chroma_delete_doc, bm25_delete_doc, remove_document, chroma_get_chunks, chroma_get_all, list_courses
+from final_agent.knowledge import build, create_course, list_course_index_info, list_documents, metadata_total, chroma_delete_doc, bm25_delete_doc, remove_document, chroma_get_chunks, chroma_migrate_legacy_course, list_courses
 from final_agent.retrieval import search as retrieval_search
 from final_agent.retrieval.pipeline import deep_search
 from final_agent.generation import answer_question, verify_answer
@@ -26,7 +26,11 @@ from final_agent.generation.answer_generator import answer_deep
 from final_agent.generation.summarizer import summarize_document
 from final_agent.settings import load_settings, Settings
 from final_agent.ui.agent_client import AgentApiClient, AgentApiError
+from final_agent.ui.charts import cjk_font_properties, unpack_pie_result
+from final_agent.ui.knowledge_status import format_knowledge_status
 from final_agent.ui.study_coach_view import format_study_coach_summary, format_trace_lines
+from final_agent.ui.theme import app_header_html, apple_theme_css
+from final_agent.ui.workspace import evidence_popover_config, input_placeholder, latest_assistant_evidence, mode_display_names, mode_group_options, validation_summary
 
 logger = logging.getLogger(__name__)
 
@@ -179,37 +183,29 @@ def init_state() -> Settings:
         st.session_state.settings = load_settings()
     return st.session_state.settings
 
-
-@st.cache_resource
-def ensure_knowledge_loaded(_h: str = "") -> bool:
-    """Restore BM25 index from persisted JSON using all chunks in ChromaDB."""
-    try:
-        cur = load_settings()
-        all_chunks = chroma_get_all(settings=cur)
-        bm25_load(all_chunks, settings=cur)
-    except Exception:
-        pass
-    return True
-
-
 # ================================= UI =================================
 
-st.set_page_config(page_title="final-agent", page_icon="📚", layout="wide")
-st.title("📚 final-agent — 期末复习助手")
+st.set_page_config(page_title="final-agent", layout="wide")
+st.markdown(apple_theme_css(), unsafe_allow_html=True)
 
 settings = init_state()
 app_state: AppState = st.session_state.app_state
 
-with st.spinner("加载知识库..."):
-    ensure_knowledge_loaded(str(app_state.build_counter))
-st.empty()
+st.markdown(
+    app_header_html(
+        knowledge_status=format_knowledge_status(list_course_index_info(settings=st.session_state.settings), app_state.course_id),
+        active_mode=mode_display_names().get(app_state.query_mode, app_state.query_mode),
+        course_label=app_state.course_id or "全部课件",
+    ),
+    unsafe_allow_html=True,
+)
 
 # ====================== SIDEBAR ======================
 
 with st.sidebar:
     # --- LLM API ---
-    st.header("🔑 API 配置")
-    with st.expander("🤖 DeepSeek (问答)", expanded=not _read_env("DEEPSEEK_API_KEY")):
+    st.markdown('<div class="fa-section-label">模型与 API</div>', unsafe_allow_html=True)
+    with st.expander("DeepSeek 问答模型", expanded=not _read_env("DEEPSEEK_API_KEY")):
         dk = _read_env("DEEPSEEK_API_KEY")
         du = _read_env("DEEPSEEK_BASE_URL") or "https://api.deepseek.com/v1"
         ak = st.text_input(
@@ -217,22 +213,22 @@ with st.sidebar:
             type="password", placeholder="sk-...", key="deepseek_key"
         )
         au = st.text_input("Base URL", value=du, key="deepseek_url")
-        if st.button("💾 保存", key="save_deepseek"):
+        if st.button("保存", key="save_deepseek"):
             if ak.strip():
                 _write_env("DEEPSEEK_API_KEY", ak.strip())
                 _write_env("DEEPSEEK_BASE_URL", au.strip())
                 st.session_state.settings = _refresh_settings()
                 app_state.build_counter += 1
-                st.success("✅ 已保存")
+                st.success("已保存")
                 st.rerun()
             else:
                 st.error("请输入 Key")
         if not dk or dk.startswith("sk-your-"):
-            st.info("💡 需配置 DeepSeek Key")
+            st.info("需配置 DeepSeek Key")
 
     # --- Vision API ---
     vision_on = st.checkbox(
-        "🖼️ 启用图片分析 (Doubao)",
+        "启用图片分析 (Doubao)",
         key="vision_toggle",
         help="导入 PDF 时自动用 VLM 分析图片内容"
     )
@@ -242,12 +238,12 @@ with st.sidebar:
         v_key = st.text_input("火山方舟 Key", value=vk, type="password", key="vision_key_inp")
         v_url = st.text_input("VLM Base URL", value=vu, key="vision_url_inp")
         v_model = st.selectbox("模型", ["doubao-seed-2-0-pro-260215", "doubao-seed-2-0-lite-260428"], key="vision_model_sel")
-        if st.button("💾 保存 Vision"):
+        if st.button("保存 Vision"):
             if v_key.strip():
                 _write_env("ARK_API_KEY", v_key.strip())
                 _write_env("ARK_BASE_URL", v_url.strip())
                 st.session_state.settings = _refresh_settings()
-                st.success("✅ 已保存")
+                st.success("已保存")
                 st.rerun()
             else:
                 st.error("请输入 Key")
@@ -255,14 +251,14 @@ with st.sidebar:
     st.divider()
 
     # --- Conversations ---
-    st.header("💬 对话")
+    st.markdown('<div class="fa-section-label">学习会话</div>', unsafe_allow_html=True)
 
     convs = app_state.conversations
     # Sort: newest first (by conv_id order in dict — insertion order)
     for cid in list(convs.keys()):
         c = convs[cid]
         n_msgs = len(c.get("history", []))
-        label = f"{'🔵 ' if cid == app_state.active_conv_id else '⚪ '}{c['name']} ({n_msgs})"
+        label = f"{'当前 · ' if cid == app_state.active_conv_id else ''}{c['name']} ({n_msgs})"
         col_a, col_b = st.columns([4, 1])
         with col_a:
             if st.button(label, key=f"conv_{cid}", use_container_width=True):
@@ -271,14 +267,14 @@ with st.sidebar:
                 st.rerun()
         with col_b:
             if len(convs) > 1:
-                if st.button("🗑️", key=f"delconv_{cid}", help="删除此对话"):
+                if st.button("删除", key=f"delconv_{cid}", help="删除此对话"):
                     del convs[cid]
                     if app_state.active_conv_id == cid:
                         app_state.active_conv_id = next(iter(convs.keys()), "")
                     _save_conversations(app_state)
                     st.rerun()
 
-    if st.button("➕ 新建对话", use_container_width=True):
+    if st.button("新建对话", use_container_width=True):
         cid = _new_conv_id()
         convs[cid] = {"name": _new_conv_name(), "history": []}
         app_state.active_conv_id = cid
@@ -288,13 +284,13 @@ with st.sidebar:
     st.divider()
 
     # --- Hallucination stats ---
-    with st.expander("📊 幻觉统计", expanded=True):
+    with st.expander("幻觉统计", expanded=True):
         all_flags: list[dict] = []
         for msg in app_state._current_history():
             if msg.get("role") == "assistant" and msg.get("flags"):
                 all_flags.extend(msg["flags"])
         if not all_flags:
-            st.caption("📭 当前对话暂无校验数据")
+            st.caption("当前对话暂无校验数据")
         else:
             import matplotlib.pyplot as plt
             clean = sum(1 for f in all_flags if not f.get("flagged"))
@@ -302,43 +298,47 @@ with st.sidebar:
             total = len(all_flags)
             fig, ax = plt.subplots(figsize=(3, 3))
             colors = ["#2ecc71", "#e74c3c"]
-            labels = [f"✅ 通过 ({clean})", f"⚠️ 疑似 ({suspect})"]
+            labels = [f"通过 ({clean})", f"疑似 ({suspect})"]
             sizes = [clean, suspect]
             if suspect == 0:
                 sizes = [clean]
                 labels = labels[:1]
                 colors = colors[:1]
-            wedges, texts, autotexts = ax.pie(
+            cjk_font = cjk_font_properties()
+            wedges, texts, autotexts = unpack_pie_result(ax.pie(
                 sizes,
                 labels=labels,
                 colors=colors,
                 autopct="%1.1f%%" if suspect > 0 else None,
                 startangle=90,
                 pctdistance=0.6,
-            )
-            for t in autotexts:
+                textprops={"fontproperties": cjk_font} if cjk_font else None,
+            ))
+            for t in [*texts, *autotexts]:
+                if cjk_font:
+                    t.set_fontproperties(cjk_font)
                 t.set_fontsize(9)
                 t.set_fontweight("bold")
-            ax.set_title(f"累计校验 {total} 处引用", fontsize=10)
+            ax.set_title(f"累计校验 {total} 处引用", fontsize=10, fontproperties=cjk_font)
             st.pyplot(fig)
             plt.close(fig)
             suspect_rate = suspect / total * 100 if total else 0
             if suspect_rate == 0:
-                st.success(f"🎉 全部通过！{total} 处引用均与原文一致")
+                st.success(f"全部通过：{total} 处引用均与原文一致")
             elif suspect_rate < 20:
                 st.info(f"疑似率 {suspect_rate:.1f}% — 整体可信，少数需核实")
 
     st.divider()
 
     # --- Course & Mode ---
-    st.header("🔍 检索设置")
+    st.markdown('<div class="fa-section-label">检索范围</div>', unsafe_allow_html=True)
     courses = list_courses(settings=st.session_state.settings)
     course_options = ["全部课件"] + courses
     current_course_label = "全部课件" if not app_state.course_id else app_state.course_id
     if current_course_label not in course_options:
         current_course_label = course_options[0]
     selected_course = st.selectbox(
-        "📚 课程",
+        "课程",
         course_options,
         index=course_options.index(current_course_label),
         key="course_sel",
@@ -348,11 +348,39 @@ with st.sidebar:
         app_state.course_id = new_course
         _save_conversations(app_state)
 
-    mode_options = ["🔍 问答", "📖 深度问答", "📄 逐页输出", "📋 全文总结", "⭐ 重点总结", "🎓 Study Coach"]
-    mode_keys = ["qa", "deep", "page_by_page", "full_summary", "key_points", "study_coach"]
+    with st.expander("新建课程", expanded=False):
+        new_course_name = st.text_input(
+            "课程名称",
+            key="new_course_name",
+            placeholder="例如：软件工程",
+        )
+        if st.button("创建课程", key="create_course", use_container_width=True):
+            course_name = new_course_name.strip()
+            if not course_name:
+                st.warning("请输入课程名称")
+            else:
+                try:
+                    created = create_course(course_name, settings=st.session_state.settings)
+                    app_state.course_id = course_name
+                    _save_conversations(app_state)
+                    if created:
+                        st.success(f"已创建课程：{course_name}")
+                    else:
+                        st.info(f"课程已存在，已切换到：{course_name}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"创建课程失败: {e}")
+
+    grouped_modes = [
+        (key, f"{group} · {label}")
+        for group, options in mode_group_options().items()
+        for key, label in options
+    ]
+    mode_keys = [key for key, _label in grouped_modes]
+    mode_options = [label for _key, label in grouped_modes]
     current_mode_idx = mode_keys.index(app_state.query_mode) if app_state.query_mode in mode_keys else 0
     selected_mode = st.selectbox(
-        "模  式",
+        "模式",
         mode_options,
         index=current_mode_idx,
         key="mode_sel",
@@ -368,7 +396,7 @@ with st.sidebar:
     if current_model not in model_names:
         current_model = "deepseek-v4-flash"
     selected_model = st.radio(
-        "⚡ 模型选择",
+        "模型选择",
         model_names,
         index=model_names.index(current_model),
         key="model_radio",
@@ -387,18 +415,18 @@ with st.sidebar:
         if doc_ids:
             current_doc_idx = doc_ids.index(app_state.current_doc) if app_state.current_doc in doc_ids else len(doc_ids) - 1
             app_state.current_doc = st.selectbox(
-                "📎 目标文档",
+                "目标文档",
                 doc_ids,
                 index=current_doc_idx,
                 key="doc_sel",
             )
         else:
-            st.caption("⚠️ 当前课程无文档")
+            st.caption("当前课程无文档")
 
     st.divider()
 
     # --- Knowledge Base ---
-    st.header("📄 知识库")
+    st.markdown('<div class="fa-section-label">知识库</div>', unsafe_allow_html=True)
 
     docs = list_documents(settings=st.session_state.settings)
     if docs:
@@ -406,17 +434,17 @@ with st.sidebar:
         st.caption(f"已导入 {len(docs)} 篇文档，共 {total} 个 chunk")
         for d_id, info in docs.items():
             c_count = info.get("chunk_count", 0)
-            label = f"📎 {d_id} ({c_count} chunks)"
+            label = f"{d_id} ({c_count} chunks)"
             with st.expander(label):
                 st.caption(f"来源: {info.get('source_path', '?')}")
                 st.caption(f"导入: {info.get('imported_at', '?')[:19]}")
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    if st.button("🔍 查看", key=f"view_{d_id}", use_container_width=True):
+                    if st.button("查看", key=f"view_{d_id}", use_container_width=True):
                         st.session_state[f"show_chunks_{d_id}"] = not st.session_state.get(f"show_chunks_{d_id}", False)
                 with col2:
-                    if st.button("🗑️ 删除", key=f"del_{d_id}", use_container_width=True):
+                    if st.button("删除", key=f"del_{d_id}", use_container_width=True):
                         cur_s = st.session_state.settings
                         n1 = chroma_delete_doc(d_id, settings=cur_s)
                         n2 = bm25_delete_doc(d_id, settings=cur_s)
@@ -435,7 +463,22 @@ with st.sidebar:
                     except Exception:
                         st.caption("(无法加载 chunk)")
     else:
-        st.caption("📭 知识库为空，上传课件开始")
+        st.caption("知识库为空，上传课件开始")
+
+    with st.expander("课程知识库维护", expanded=False):
+        target_course = app_state.course_id or "默认课程"
+        st.caption(f"当前课程知识库：{target_course}")
+        if st.button("迁移当前课程旧 Chroma", use_container_width=True):
+            try:
+                summary = chroma_migrate_legacy_course(target_course, settings=st.session_state.settings)
+                st.success(
+                    "已迁移 "
+                    f"{summary['migrated_chunks']} / {summary['legacy_chunks']} 个旧 chunk"
+                )
+                if summary["skipped_existing"]:
+                    st.caption(f"已存在并跳过：{summary['skipped_existing']} 个")
+            except Exception as e:
+                st.error(f"迁移失败: {e}")
 
     uploader_key = f"uploader_{app_state.build_counter}"
     uploaded = st.file_uploader("上传 PDF 或 Markdown", type=["pdf", "md"], key=uploader_key)
@@ -456,7 +499,7 @@ with st.sidebar:
                 _max = min(cur.vision.max_pages, _total)
                 _batches = (_max + cur.vision.pages_per_batch - 1) // cur.vision.pages_per_batch
                 _conc = min(cur.vision.concurrent_batches, _batches)
-                st.info(f"📝 PDF 共 {_total} 页（处理前 {_max} 页），{_batches} 批 × {_conc} 路并行 → Doubao API")
+                st.info(f"PDF 共 {_total} 页（处理前 {_max} 页），{_batches} 批 × {_conc} 路并行 → Doubao API")
                 _pdf.close()
             except Exception:
                 pass
@@ -466,7 +509,7 @@ with st.sidebar:
                 chunks = import_document(str(tmp_path), settings=cur, course_id=app_state.course_id or "")
                 summary = build(chunks, source_path=str(tmp_path), settings=cur)
                 app_state.build_counter += 1
-                st.success(f"✅ {summary['chunks']} chunks")
+                st.success(f"{summary['chunks']} chunks")
                 st.rerun()
             except Exception as e:
                 st.error(f"失败: {e}")
@@ -474,7 +517,7 @@ with st.sidebar:
                     import traceback
                     st.code(traceback.format_exc())
 
-    if st.button("🗑️ 清空知识库", use_container_width=True):
+    if st.button("清空知识库", use_container_width=True):
         shutil.rmtree(str(DATA_DIR / "vector_db"), ignore_errors=True)
         app_state.build_counter += 1
         st.success("已清除")
@@ -483,47 +526,6 @@ with st.sidebar:
     st.divider()
     st.caption("Doubao API + BGE + Chroma + DeepSeek")
     st.caption("防幻觉: L2 语义校验 (threshold=0.3)")
-
-# ====================== MAIN: Chat ======================
-
-st.subheader("💬 问答")
-
-for msg in app_state._current_history():
-    role = msg["role"]
-    with st.chat_message(role):
-        st.markdown(msg["content"])
-
-        if role == "assistant" and msg.get("flags"):
-            clean_n = sum(1 for f in msg["flags"] if not f.get("flagged"))
-            bad_n = sum(1 for f in msg["flags"] if f.get("flagged"))
-            total_n = len(msg["flags"])
-            if bad_n > 0:
-                st.error(f"⚠️ 幻觉检测: {bad_n}/{total_n} 处疑似编造")
-            else:
-                st.success(f"✅ 防幻觉校验通过 ({clean_n}/{total_n} 处于原文一致)")
-
-            with st.expander(f"🔍 逐句校验详情 ({total_n} 处引用)"):
-                for f in msg["flags"]:
-                    sim = f["similarity_score"]
-                    cid = f["cited_chunk_id"][:8]
-                    if f["flagged"]:
-                        st.error(f"⚠️ [{cid}] 相似度={sim:.3f}   {f['sentence'][:120]}")
-                    else:
-                        st.success(f"✅ [{cid}] 相似度={sim:.3f}   {f['sentence'][:120]}")
-
-        if role == "assistant" and msg.get("citations"):
-            with st.expander(f"📖 引用来源 ({len(msg['citations'])} 个 chunk)"):
-                for cid in msg["citations"]:
-                    reg = msg.get("chunk_registry", {})
-                    if cid in reg:
-                        ci = reg[cid]
-                        st.caption(
-                            f"**[{cid[:8]}]** {ci['heading']} "
-                            f"(score={ci['score']:.3f}, {ci['source']})"
-                        )
-                        st.text(ci["text"][:400])
-                    else:
-                        st.caption(f"**[{cid[:8]}]** (未在检索结果中)")
 
 # ============================== Helpers ==============================
 
@@ -561,24 +563,24 @@ def _show_hallucination(flag_data):
     clean_n = sum(1 for f in flag_data if not f["flagged"])
     bad_n = len(flag_data) - clean_n
     if bad_n > 0:
-        st.error(f"⚠️ 幻觉检测: {bad_n}/{len(flag_data)} 处疑似编造")
+        st.error(f"幻觉检测: {bad_n}/{len(flag_data)} 处疑似编造")
     else:
-        st.success(f"✅ 防幻觉通过 ({clean_n}/{len(flag_data)})")
-    with st.expander(f"🔍 逐句校验 ({len(flag_data)} 处)"):
+        st.success(f"防幻觉通过 ({clean_n}/{len(flag_data)})")
+    with st.expander(f"逐句校验 ({len(flag_data)} 处)"):
         for f in flag_data:
             sim = f["similarity_score"]
             cid = f["cited_chunk_id"][:8]
             if f["flagged"]:
-                st.error(f"⚠️ [{cid}] sim={sim:.3f}  {f['sentence'][:120]}")
+                st.error(f"[{cid}] sim={sim:.3f}  {f['sentence'][:120]}")
             else:
-                st.success(f"✅ [{cid}] sim={sim:.3f}  {f['sentence'][:120]}")
+                st.success(f"[{cid}] sim={sim:.3f}  {f['sentence'][:120]}")
 
 
 def _show_citations(ans, chunk_registry):
     """Display citation sources."""
     if not ans or not ans.citations:
         return
-    with st.expander(f"📖 引用来源 ({len(ans.citations)} 个 chunk)"):
+    with st.expander(f"引用来源 ({len(ans.citations)} 个 chunk)"):
         for cid in ans.citations:
             if cid in chunk_registry:
                 ci = chunk_registry[cid]
@@ -587,15 +589,147 @@ def _show_citations(ans, chunk_registry):
             else:
                 st.caption(f"**[{cid[:8]}]** (未命中)")
 
+
+def _course_filter() -> list[str] | None:
+    if app_state.course_id:
+        return [app_state.course_id]
+    return None
+
+
+def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
+    client = AgentApiClient()
+    try:
+        if not app_state.agent_session_id:
+            response = client.create_session(prompt, cids or [])
+            app_state.agent_session_id = response["session_id"]
+        else:
+            response = client.send_message(app_state.agent_session_id, prompt)
+
+        mastery_response = client.get_mastery(app_state.agent_session_id)
+        trace_response = client.get_trace(app_state.agent_session_id)
+        content = format_study_coach_summary(response, mastery_response.get("mastery", {}))
+        st.markdown(content)
+        with st.expander("Study Coach tool trace", expanded=False):
+            for line in format_trace_lines(trace_response.get("trace", [])):
+                st.markdown(f"- {line}")
+        app_state._add_message("assistant", content=content)
+    except AgentApiError as e:
+        st.error(f"Study Coach API error: {e}")
+
+
+def _render_history() -> None:
+    for msg in app_state._current_history():
+        role = msg["role"]
+        with st.chat_message(role):
+            st.markdown(msg["content"])
+
+            if role == "assistant" and msg.get("flags"):
+                _show_hallucination(msg["flags"])
+
+            if role == "assistant" and msg.get("citations"):
+                reg = msg.get("chunk_registry", {})
+                with st.expander(f"引用来源 ({len(msg['citations'])} 个 chunk)"):
+                    for cid in msg["citations"]:
+                        if cid in reg:
+                            ci = reg[cid]
+                            st.caption(
+                                f"**[{cid[:8]}]** {ci['heading']} "
+                                f"(score={ci['score']:.3f}, {ci['source']})"
+                            )
+                            st.text(ci["text"][:400])
+                        else:
+                            st.caption(f"**[{cid[:8]}]** (未在检索结果中)")
+
+
+def _render_evidence_tab(evidence: dict) -> None:
+    citations = evidence.get("citations", [])
+    registry = evidence.get("chunk_registry", {})
+    if not citations:
+        st.caption("生成回答后，这里会显示引用 chunk、来源和分数。")
+        return
+    st.caption(f"最近回答引用了 {len(citations)} 个 chunk")
+    for cid in citations:
+        if cid in registry:
+            ci = registry[cid]
+            with st.expander(f"{cid[:8]} · {ci['source']} · score={ci['score']:.3f}"):
+                st.caption(ci["heading"])
+                st.text(ci["text"][:700])
+        else:
+            st.caption(f"**[{cid[:8]}]** (未在检索结果中)")
+
+
+def _render_validation_tab(evidence: dict) -> None:
+    flags = evidence.get("flags", [])
+    summary = validation_summary(flags)
+    if summary["total"] == 0:
+        st.caption("最近回答暂无逐句引用校验数据。")
+        return
+    if summary["suspect"]:
+        st.error(f"疑似 {summary['suspect']}/{summary['total']} 处")
+    else:
+        st.success(f"通过 {summary['clean']}/{summary['total']} 处")
+    with st.expander("逐句校验详情", expanded=True):
+        for flag in flags:
+            sim = flag.get("similarity_score", 0)
+            cid = str(flag.get("cited_chunk_id", ""))[:8]
+            sentence = str(flag.get("sentence", ""))[:160]
+            if flag.get("flagged"):
+                st.error(f"[{cid}] sim={sim:.3f}  {sentence}")
+            else:
+                st.success(f"[{cid}] sim={sim:.3f}  {sentence}")
+
+
+def _render_coach_tab() -> None:
+    st.caption("Study Coach 使用现有 FastAPI session contract。")
+    prompt = st.text_area(
+        "学习目标 / 回答",
+        key="coach_tab_prompt",
+        height=120,
+        placeholder="例如：帮我复习软件配置管理，先出一道题",
+    )
+    if st.button("运行 Study Coach", key="coach_tab_run", use_container_width=True):
+        if prompt.strip():
+            app_state._add_message("user", content=prompt.strip())
+            _run_study_coach_turn(prompt.strip(), _course_filter())
+            _save_conversations(app_state)
+        else:
+            st.warning("请输入学习目标或回答")
+
+
+# ====================== MAIN: Workspace ======================
+
+title_col, evidence_col = st.columns([0.78, 0.22], gap="large")
+with title_col:
+    st.subheader("Ask / Summarize")
+    st.caption(
+        f"当前模式：{mode_display_names().get(app_state.query_mode, app_state.query_mode)} · "
+        f"课程范围：{app_state.course_id or '全部课件'}"
+    )
+
+with evidence_col:
+    popover = evidence_popover_config()
+    st.caption(popover["caption"])
+    with st.popover(popover["label"], use_container_width=True):
+        st.subheader("Evidence")
+        evidence = latest_assistant_evidence(app_state._current_history())
+        evidence_tab, validation_tab, coach_tab = st.tabs(["Evidence", "Validation", "Coach"])
+        with evidence_tab:
+            _render_evidence_tab(evidence)
+        with validation_tab:
+            _render_validation_tab(evidence)
+        with coach_tab:
+            _render_coach_tab()
+
+_render_history()
+
 # --- Input ---
 question = st.chat_input(
-    "输入你的问题..." if app_state.query_mode in ("qa", "deep")
-    else f"输入指令（当前模式：{app_state.query_mode}）..."
+    input_placeholder(app_state.query_mode)
 )
 if question:
     cur = st.session_state.settings
     if not cur.models_llm.api_key or cur.models_llm.api_key.startswith("sk-your-"):
-        st.error("⚠️ 请先在侧边栏配置 DeepSeek API Key")
+        st.error("请先在侧边栏配置 DeepSeek API Key")
     else:
         app_state._add_message("user", content=question)
         mode = app_state.query_mode
@@ -608,10 +742,7 @@ if question:
             st.markdown(question)
 
         with st.chat_message("assistant"):
-            # --- Build course filter ---
-            cids: list[str] | None = None
-            if app_state.course_id:
-                cids = [app_state.course_id]
+            cids = _course_filter()
 
             # ==================== QA mode ====================
             if mode == "qa":
@@ -677,24 +808,7 @@ if question:
 
             # ==================== Study Coach mode ====================
             elif mode == "study_coach":
-                client = AgentApiClient()
-                try:
-                    if not app_state.agent_session_id:
-                        response = client.create_session(question, cids or [])
-                        app_state.agent_session_id = response["session_id"]
-                    else:
-                        response = client.send_message(app_state.agent_session_id, question)
-
-                    mastery_response = client.get_mastery(app_state.agent_session_id)
-                    trace_response = client.get_trace(app_state.agent_session_id)
-                    content = format_study_coach_summary(response, mastery_response.get("mastery", {}))
-                    st.markdown(content)
-                    with st.expander("Study Coach tool trace", expanded=False):
-                        for line in format_trace_lines(trace_response.get("trace", [])):
-                            st.markdown(f"- {line}")
-                    app_state._add_message("assistant", content=content)
-                except AgentApiError as e:
-                    st.error(f"Study Coach API error: {e}")
+                _run_study_coach_turn(question, cids)
 
             # ==================== Summary modes ====================
             elif mode in ("page_by_page", "full_summary", "key_points"):
