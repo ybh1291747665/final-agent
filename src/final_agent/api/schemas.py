@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from final_agent.agent.models import AgentStatus, AgentToolTraceEntry, CriticWarning, GradeResult, QuizQuestion, StudyPlanStep, ToolTraceEntry
+from final_agent.agent.models import (
+    AgentStatus,
+    AgentToolTraceEntry,
+    CriticWarning,
+    EvidenceSnapshot,
+    GradeResult,
+    QuizQuestion,
+    StudyPlanStep,
+    ToolTraceEntry,
+)
 
 
 class CreateSessionRequest(BaseModel):
@@ -24,6 +33,7 @@ class SessionResponse(BaseModel):
     agent_plan: list[str] = Field(default_factory=list)
     agent_trace: list[AgentToolTraceEntry] = Field(default_factory=list)
     critic_warnings: list[CriticWarning] = Field(default_factory=list)
+    evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
 
 
 class MasteryResponse(BaseModel):

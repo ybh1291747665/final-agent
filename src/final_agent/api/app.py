@@ -39,6 +39,7 @@ class AgentService:
             agent_plan=state.agent_plan,
             agent_trace=state.agent_trace,
             critic_warnings=state.critic_warnings,
+            evidence_snapshots=state.evidence_snapshots,
         )
 
     def create_session(self, payload: CreateSessionRequest) -> SessionResponse:
