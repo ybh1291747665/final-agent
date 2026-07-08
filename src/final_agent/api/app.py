@@ -47,6 +47,8 @@ class AgentService:
         self.repository.create_session(state)
         for trace in state.tool_trace:
             self.repository.append_trace(state.session_id, trace)
+        for trace in state.agent_trace:
+            self.repository.append_agent_trace(state.session_id, trace)
         return self._response(state)
 
     def send_message(self, session_id: str, message: str) -> SessionResponse:
@@ -58,10 +60,13 @@ class AgentService:
             raise HTTPException(status_code=409, detail="Session is not waiting for an answer")
         state.learner_answer = message
         before = len(state.tool_trace)
+        before_agent_trace = len(state.agent_trace)
         state = self.orchestrator.run_turn(state)
         self.repository.save_session(state)
         for trace in state.tool_trace[before:]:
             self.repository.append_trace(state.session_id, trace)
+        for trace in state.agent_trace[before_agent_trace:]:
+            self.repository.append_agent_trace(state.session_id, trace)
         return self._response(state)
 
     def get_session(self, session_id: str) -> SessionResponse:
