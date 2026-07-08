@@ -31,6 +31,23 @@ class GenerateQuizInput(BaseModel):
     count: int = 1
 
 
+class GradeAnswerInput(BaseModel):
+    question: str
+    expected_points: list[str] = Field(default_factory=list)
+    learner_answer: str
+    materials: list[Any] = Field(default_factory=list)
+
+
+class GetLearningProfileInput(BaseModel):
+    session_id: str
+
+
+class UpdateMasteryInput(BaseModel):
+    session_id: str
+    topic: str
+    score: float
+
+
 class VerifyEvidenceInput(BaseModel):
     quiz_prompt: str = ""
     evidence_count: int = 0
@@ -113,9 +130,9 @@ TOOL_REGISTRY = {
     "search_course_material": SearchCourseMaterialInput,
     "summarize_course": SummarizeCourseInput,
     "generate_quiz": GenerateQuizInput,
-    "grade_answer": None,
-    "get_learning_profile": None,
-    "update_mastery": None,
+    "grade_answer": GradeAnswerInput,
+    "get_learning_profile": GetLearningProfileInput,
+    "update_mastery": UpdateMasteryInput,
     "verify_evidence": VerifyEvidenceInput,
     "verify_grade_consistency": VerifyGradeConsistencyInput,
 }

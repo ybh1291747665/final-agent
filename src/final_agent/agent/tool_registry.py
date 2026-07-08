@@ -25,6 +25,9 @@ class ToolRegistry:
     def register(self, spec: ToolSpec) -> None:
         self._tools[spec.name] = spec
 
+    def tool_names(self) -> list[str]:
+        return sorted(self._tools)
+
     def execute(self, role: AgentRole, call: ToolCall, *, allowed_tools: list[str]) -> ToolResult:
         started = perf_counter()
         if call.name not in allowed_tools:
@@ -52,3 +55,85 @@ class ToolRegistry:
             )
         except (RuntimeError, ValueError, TimeoutError) as exc:
             return ToolResult(ok=False, error=str(exc), elapsed_ms=int((perf_counter() - started) * 1000))
+
+
+def build_default_tool_registry(repository=None, quiz_generator=None, grader=None) -> ToolRegistry:
+    from final_agent.agent import tools
+
+    def unwrap(result):
+        if not result.ok:
+            raise RuntimeError(result.error)
+        return result.value
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="search_course_material",
+            input_model=tools.SearchCourseMaterialInput,
+            operation=lambda payload: unwrap(
+                tools.search_course_material(payload.query, payload.course_ids, payload.top_k)
+            ),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="summarize_course",
+            input_model=tools.SummarizeCourseInput,
+            operation=lambda payload: unwrap(tools.summarize_course(payload.doc_id, payload.mode)),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="generate_quiz",
+            input_model=tools.GenerateQuizInput,
+            operation=lambda payload: unwrap(
+                tools.generate_quiz(payload.topic, payload.course_ids, payload.count, quiz_generator=quiz_generator)
+            ),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="grade_answer",
+            input_model=tools.GradeAnswerInput,
+            operation=lambda payload: unwrap(
+                tools.grade_answer(
+                    payload.question,
+                    payload.expected_points,
+                    payload.learner_answer,
+                    grader=grader,
+                    materials=payload.materials,
+                )
+            ),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="get_learning_profile",
+            input_model=tools.GetLearningProfileInput,
+            operation=lambda payload: unwrap(tools.get_learning_profile(payload.session_id, repository)),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="update_mastery",
+            input_model=tools.UpdateMasteryInput,
+            operation=lambda payload: unwrap(
+                tools.update_mastery(payload.session_id, payload.topic, payload.score, repository)
+            ),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="verify_evidence",
+            input_model=tools.VerifyEvidenceInput,
+            operation=lambda payload: unwrap(tools.verify_evidence(payload.quiz_prompt, payload.evidence_count)),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="verify_grade_consistency",
+            input_model=tools.VerifyGradeConsistencyInput,
+            operation=lambda payload: unwrap(tools.verify_grade_consistency(payload.score, payload.next_action)),
+        )
+    )
+    return registry
