@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from final_agent.agent.critics import verify_evidence as critic_verify_evidence
+from final_agent.agent.critics import verify_grade_consistency as critic_verify_grade_consistency
 from final_agent.agent.graders import DeterministicGrader
 from final_agent.agent.models import ToolResult
 from final_agent.agent.quiz_generators import DeterministicQuizGenerator
@@ -27,6 +29,16 @@ class GenerateQuizInput(BaseModel):
     topic: str
     course_ids: list[str] = Field(default_factory=list)
     count: int = 1
+
+
+class VerifyEvidenceInput(BaseModel):
+    quiz_prompt: str = ""
+    evidence_count: int = 0
+
+
+class VerifyGradeConsistencyInput(BaseModel):
+    score: float
+    next_action: str
 
 
 def run_tool(operation: Callable[[], Any]) -> ToolResult:
@@ -89,6 +101,14 @@ def update_mastery(session_id: str, topic: str, score: float, repository: Any | 
     return run_tool(lambda: repository.upsert_mastery(session_id, topic, score) if repository else None)
 
 
+def verify_evidence(quiz_prompt: str, evidence_count: int) -> ToolResult:
+    return run_tool(lambda: critic_verify_evidence(quiz_prompt=quiz_prompt, evidence_count=evidence_count))
+
+
+def verify_grade_consistency(score: float, next_action: str) -> ToolResult:
+    return run_tool(lambda: critic_verify_grade_consistency(score=score, next_action=next_action))
+
+
 TOOL_REGISTRY = {
     "search_course_material": SearchCourseMaterialInput,
     "summarize_course": SummarizeCourseInput,
@@ -96,4 +116,6 @@ TOOL_REGISTRY = {
     "grade_answer": None,
     "get_learning_profile": None,
     "update_mastery": None,
+    "verify_evidence": VerifyEvidenceInput,
+    "verify_grade_consistency": VerifyGradeConsistencyInput,
 }
