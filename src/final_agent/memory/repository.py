@@ -7,7 +7,8 @@ from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, MetaData, St
 from sqlalchemy.engine import Engine
 
 from final_agent.agent.mastery import update_mastery_score
-from final_agent.agent.models import AgentState, GradeResult, MasteryRecord, QuizQuestion, ToolTraceEntry
+from final_agent.agent.models import AgentState, AgentToolTraceEntry, GradeResult, MasteryRecord, QuizQuestion, ToolTraceEntry
+from final_agent.agent.roles import AgentRole
 
 
 metadata = MetaData()
@@ -55,6 +56,9 @@ tool_traces = Table(
     Column("ok", Boolean, nullable=False),
     Column("elapsed_ms", Integer, nullable=False),
     Column("error", Text, nullable=False),
+    Column("agent_role", String, nullable=False, default=""),
+    Column("output_summary", Text, nullable=False, default=""),
+    Column("fallback_reason", Text, nullable=False, default=""),
     Column("created_at", String, nullable=False),
 )
 
@@ -63,12 +67,26 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _ensure_tool_trace_columns(engine: Engine) -> None:
+    required = {
+        "agent_role": "TEXT NOT NULL DEFAULT ''",
+        "output_summary": "TEXT NOT NULL DEFAULT ''",
+        "fallback_reason": "TEXT NOT NULL DEFAULT ''",
+    }
+    with engine.begin() as conn:
+        existing = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(tool_traces)").fetchall()}
+        for name, ddl in required.items():
+            if name not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE tool_traces ADD COLUMN {name} {ddl}")
+
+
 class MemoryRepository:
     def __init__(self, path: str | Path = "data/learner_memory.sqlite"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.engine: Engine = create_engine(f"sqlite:///{self.path}")
         metadata.create_all(self.engine)
+        _ensure_tool_trace_columns(self.engine)
 
     def create_session(self, state: AgentState) -> AgentState:
         now = _now()
@@ -150,5 +168,43 @@ class MemoryRepository:
             rows = conn.execute(select(tool_traces).where(tool_traces.c.session_id == session_id).order_by(tool_traces.c.sequence_no)).mappings().all()
         return [
             ToolTraceEntry(tool_name=row["tool_name"], input_summary=row["input_summary"], ok=row["ok"], elapsed_ms=row["elapsed_ms"], error=row["error"], sequence_no=row["sequence_no"])
+            for row in rows
+        ]
+
+    def append_agent_trace(self, session_id: str, trace: AgentToolTraceEntry) -> AgentToolTraceEntry:
+        with self.engine.begin() as conn:
+            current = conn.execute(select(tool_traces.c.sequence_no).where(tool_traces.c.session_id == session_id).order_by(tool_traces.c.sequence_no.desc())).first()
+            sequence_no = (current[0] + 1) if current else 1
+            conn.execute(tool_traces.insert().values(
+                session_id=session_id,
+                sequence_no=sequence_no,
+                tool_name=trace.tool_name,
+                input_summary=trace.input_summary,
+                ok=trace.ok,
+                elapsed_ms=trace.elapsed_ms,
+                error=trace.error,
+                agent_role=trace.agent_role.value,
+                output_summary=trace.output_summary,
+                fallback_reason=trace.fallback_reason,
+                created_at=_now(),
+            ))
+        trace.sequence_no = sequence_no
+        return trace
+
+    def list_agent_trace(self, session_id: str) -> list[AgentToolTraceEntry]:
+        with self.engine.begin() as conn:
+            rows = conn.execute(select(tool_traces).where(tool_traces.c.session_id == session_id).order_by(tool_traces.c.sequence_no)).mappings().all()
+        return [
+            AgentToolTraceEntry(
+                agent_role=AgentRole(row["agent_role"] or AgentRole.SUPERVISOR.value),
+                tool_name=row["tool_name"],
+                input_summary=row["input_summary"],
+                output_summary=row["output_summary"] or "",
+                ok=row["ok"],
+                elapsed_ms=row["elapsed_ms"],
+                error=row["error"],
+                fallback_reason=row["fallback_reason"] or "",
+                sequence_no=row["sequence_no"],
+            )
             for row in rows
         ]
