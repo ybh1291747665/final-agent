@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from final_agent.agent.roles import AgentRole
+
 
 AgentStatus = Literal["planning", "running", "waiting_for_answer", "completed", "failed"]
 
@@ -52,6 +54,29 @@ class ToolResult(BaseModel):
     elapsed_ms: int = 0
 
 
+class ToolCall(BaseModel):
+    name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentToolTraceEntry(BaseModel):
+    agent_role: AgentRole
+    tool_name: str = ""
+    input_summary: str = ""
+    output_summary: str = ""
+    ok: bool = True
+    elapsed_ms: int = 0
+    error: str = ""
+    fallback_reason: str = ""
+    sequence_no: int = 0
+
+
+class CriticWarning(BaseModel):
+    code: str
+    message: str
+    severity: Literal["info", "warning"] = "warning"
+
+
 class AgentState(BaseModel):
     session_id: str
     learning_goal: str
@@ -65,3 +90,7 @@ class AgentState(BaseModel):
     tool_call_count: int = Field(default=0, ge=0, le=6)
     status: AgentStatus = "planning"
     next_action: str = ""
+    agent_plan: list[str] = Field(default_factory=list)
+    agent_trace: list[AgentToolTraceEntry] = Field(default_factory=list)
+    critic_warnings: list[CriticWarning] = Field(default_factory=list)
+    current_agent_role: str = ""
