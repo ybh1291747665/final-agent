@@ -29,7 +29,7 @@ from final_agent.settings import load_settings, Settings
 from final_agent.ui.agent_client import AgentApiClient, AgentApiError
 from final_agent.ui.charts import cjk_font_properties, unpack_pie_result
 from final_agent.ui.knowledge_status import format_knowledge_status
-from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_study_coach_summary, format_trace_lines
+from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_evidence_snapshots, format_study_coach_summary, format_trace_lines
 from final_agent.ui.theme import app_header_html, apple_theme_css
 from final_agent.ui.workspace import (
     course_maintenance_copy,
@@ -663,6 +663,9 @@ def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
         trace_response = client.get_trace(app_state.agent_session_id)
         content = format_study_coach_summary(response, mastery_response.get("mastery", {}))
         st.markdown(content)
+        with st.expander("Study Coach evidence", expanded=False):
+            for line in format_evidence_snapshots(response.get("evidence_snapshots", [])):
+                st.markdown(f"- {line}")
         with st.expander("Study Coach tool trace", expanded=False):
             for line in format_trace_lines(trace_response.get("trace", [])):
                 st.markdown(f"- {line}")

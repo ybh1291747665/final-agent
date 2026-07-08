@@ -1,5 +1,43 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+
+def _format_evidence_label(snapshot: dict) -> str:
+    source_path = str(snapshot.get("source_path", "") or "")
+    doc_id = str(snapshot.get("doc_id", "") or "")
+    chunk_id = str(snapshot.get("chunk_id", "") or "")
+    file_name = Path(source_path).name if source_path else doc_id
+    page_num = snapshot.get("page_num")
+
+    try:
+        page = int(page_num) if page_num not in (None, "") else 0
+    except (TypeError, ValueError):
+        page = 0
+
+    if file_name and page > 0:
+        return f"{file_name}，第 {page} 页"
+    if file_name:
+        return file_name
+    if page > 0:
+        return f"第 {page} 页"
+    return f"chunk {chunk_id[:8]}"
+
+
+def format_evidence_snapshots(snapshots: list[dict]) -> list[str]:
+    if not snapshots:
+        return ["No evidence snapshots yet."]
+
+    lines: list[str] = []
+    for snapshot in snapshots:
+        label = _format_evidence_label(snapshot)
+        heading = str(snapshot.get("heading", "") or "")
+        score = float(snapshot.get("score", 0.0))
+        summary = str(snapshot.get("summary", "") or "")
+        heading_part = f" - {heading}" if heading else ""
+        lines.append(f"**{label}**{heading_part} - score={score:.2f}\n{summary}")
+    return lines
+
 
 def format_study_coach_status_line(response: dict) -> str:
     status = response.get("status", "")

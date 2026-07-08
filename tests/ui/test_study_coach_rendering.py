@@ -85,3 +85,28 @@ def test_format_critic_warnings_keeps_empty_state_clear():
     assert format_critic_warnings([{"code": "missing_evidence", "message": "No evidence."}]) == [
         "`missing_evidence`: No evidence."
     ]
+
+
+def test_format_evidence_snapshots_prefers_file_name_and_page():
+    from final_agent.ui.study_coach_view import format_evidence_snapshots
+
+    snapshots = [
+        {
+            "chunk_id": "aaaabbbb1111",
+            "source_path": "E:/courses/software-engineering.pdf",
+            "page_num": 12,
+            "heading": "CI",
+            "summary": "CI runs automated tests.",
+            "score": 0.91,
+        }
+    ]
+
+    assert format_evidence_snapshots(snapshots) == [
+        "**software-engineering.pdf，第 12 页** - CI - score=0.91\nCI runs automated tests."
+    ]
+
+
+def test_format_evidence_snapshots_handles_empty_state():
+    from final_agent.ui.study_coach_view import format_evidence_snapshots
+
+    assert format_evidence_snapshots([]) == ["No evidence snapshots yet."]
