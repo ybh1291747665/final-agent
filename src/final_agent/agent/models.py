@@ -77,6 +77,17 @@ class CriticWarning(BaseModel):
     severity: Literal["info", "warning"] = "warning"
 
 
+class EvidenceSnapshot(BaseModel):
+    chunk_id: str
+    doc_id: str = ""
+    source_path: str = ""
+    page_num: int | None = None
+    heading: str = ""
+    summary: str = ""
+    score: float = 0.0
+    retrieval_source: str = ""
+
+
 class AgentState(BaseModel):
     session_id: str
     learning_goal: str
@@ -93,4 +104,5 @@ class AgentState(BaseModel):
     agent_plan: list[str] = Field(default_factory=list)
     agent_trace: list[AgentToolTraceEntry] = Field(default_factory=list)
     critic_warnings: list[CriticWarning] = Field(default_factory=list)
+    evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
     current_agent_role: str = ""
