@@ -27,3 +27,13 @@ def test_acceptance_runbook_covers_multi_agent_stage_one_flow():
     assert "Coach" in text
     assert "Critic" in text
     assert "Critic warnings" in text
+
+
+def test_acceptance_runbook_covers_evidence_carrying_review_turn():
+    text = Path("docs/e2e-acceptance.md").read_text(encoding="utf-8")
+
+    assert "Study Coach evidence" in text
+    assert "top 3" in text
+    assert "file name and page" in text
+    assert "single-question review turn" in text
+    assert "evidence-based feedback" in text

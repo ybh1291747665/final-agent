@@ -43,6 +43,7 @@ final-agent ui
 7. Open `Validation`.
 8. Confirm the Validation summary reports passed checks and items needing review.
 9. Confirm semantic validation is present, or the UI clearly states no validation data exists.
+10. Confirm RAG citations in the main answer use file name and page labels instead of raw chunk IDs when page metadata is available.
 
 ## 4. Study Coach
 
@@ -57,6 +58,11 @@ final-agent ui
 9. Confirm the timeline includes Supervisor, Retrieval, Quiz, Grader, Coach, and Critic in order after a complete turn.
 10. Open `Critic warnings`.
 11. Confirm warnings are visible when present and the session can still complete.
+12. Open `Study Coach evidence`.
+13. Confirm the turn shows at most top 3 evidence snapshots.
+14. Confirm evidence entries show file name and page when page metadata is available.
+15. Confirm the session remains a single-question review turn: one question, one answer, one grade, and one next action.
+16. Confirm grading feedback is evidence-based feedback rather than generic encouragement.
 
 ## 5. Maintenance And Monitoring
 
