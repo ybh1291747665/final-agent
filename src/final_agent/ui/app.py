@@ -18,9 +18,10 @@ ENV_PATH = PROJECT_ROOT / ".env"
 CONV_PATH = DATA_DIR / "conversations.json"
 
 from final_agent.ingestion import import_document
-from final_agent.knowledge import build, create_course, list_course_index_info, list_documents, metadata_total, chroma_delete_doc, bm25_delete_doc, remove_document, chroma_get_chunks, chroma_migrate_legacy_course, list_courses
+from final_agent.knowledge import build, create_course, delete_empty_course, list_course_index_info, list_documents, metadata_total, chroma_delete_doc, bm25_delete_doc, remove_document, chroma_get_chunks, chroma_migrate_legacy_course, list_courses, rebuild_course_knowledge
 from final_agent.retrieval import search as retrieval_search
 from final_agent.retrieval.pipeline import deep_search
+from final_agent.runtime_monitoring import get_runtime_monitor
 from final_agent.generation import answer_question, verify_answer
 from final_agent.generation.answer_generator import answer_deep
 from final_agent.generation.summarizer import summarize_document
@@ -28,9 +29,24 @@ from final_agent.settings import load_settings, Settings
 from final_agent.ui.agent_client import AgentApiClient, AgentApiError
 from final_agent.ui.charts import cjk_font_properties, unpack_pie_result
 from final_agent.ui.knowledge_status import format_knowledge_status
-from final_agent.ui.study_coach_view import format_study_coach_summary, format_trace_lines
+from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_study_coach_summary, format_trace_lines
 from final_agent.ui.theme import app_header_html, apple_theme_css
-from final_agent.ui.workspace import evidence_popover_config, input_placeholder, latest_assistant_evidence, mode_display_names, mode_group_options, validation_summary
+from final_agent.ui.workspace import (
+    course_maintenance_copy,
+    course_management_guidance,
+    evidence_status_summary,
+    evidence_popover_config,
+    format_course_maintenance_failure,
+    format_course_migration_summary,
+    format_course_repair_summary,
+    format_build_result_message,
+    input_placeholder,
+    latest_assistant_evidence,
+    mode_display_names,
+    mode_group_options,
+    validation_status_summary,
+    validation_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +346,24 @@ with st.sidebar:
 
     st.divider()
 
+    with st.expander("Runtime metrics", expanded=False):
+        metrics = get_runtime_monitor().snapshot()
+        retrieval_metrics = metrics["retrieval"]
+        model_metrics = metrics["model_calls"]
+        st.caption(
+            f"Retrieval: {retrieval_metrics['count']} calls, "
+            f"avg {retrieval_metrics['avg_latency_ms']:.1f} ms, "
+            f"course hit {retrieval_metrics['course_hit_rate']:.0%}"
+        )
+        st.caption(
+            f"Model: {model_metrics['count']} calls, "
+            f"avg {model_metrics['avg_latency_ms']:.1f} ms, "
+            f"tokens {model_metrics['prompt_tokens']} + {model_metrics['completion_tokens']}"
+        )
+        st.caption(f"Estimated model cost: ${model_metrics['estimated_cost_usd']:.4f}")
+
+    st.divider()
+
     # --- Course & Mode ---
     st.markdown('<div class="fa-section-label">检索范围</div>', unsafe_allow_html=True)
     courses = list_courses(settings=st.session_state.settings)
@@ -347,6 +381,10 @@ with st.sidebar:
     if new_course != app_state.course_id:
         app_state.course_id = new_course
         _save_conversations(app_state)
+    course_guidance = course_management_guidance(app_state.course_id)
+    st.caption(course_guidance["upload_assignment"])
+    if not app_state.course_id:
+        st.warning(course_guidance["all_courses_warning"])
 
     with st.expander("新建课程", expanded=False):
         new_course_name = st.text_input(
@@ -370,6 +408,19 @@ with st.sidebar:
                     st.rerun()
                 except Exception as e:
                     st.error(f"创建课程失败: {e}")
+        if app_state.course_id:
+            st.divider()
+            st.caption("只有没有文档的课程可以删除。")
+            if st.button("删除当前空课程", key="delete_empty_course", use_container_width=True):
+                deleted = delete_empty_course(app_state.course_id, settings=st.session_state.settings)
+                if deleted:
+                    removed_course = app_state.course_id
+                    app_state.course_id = ""
+                    _save_conversations(app_state)
+                    st.success(f"已删除空课程：{removed_course}")
+                    st.rerun()
+                else:
+                    st.warning("当前课程已有文档，不能作为空课程删除")
 
     grouped_modes = [
         (key, f"{group} · {label}")
@@ -465,20 +516,23 @@ with st.sidebar:
     else:
         st.caption("知识库为空，上传课件开始")
 
-    with st.expander("课程知识库维护", expanded=False):
+    maintenance_copy = course_maintenance_copy()
+    with st.expander(maintenance_copy["expander_label"], expanded=False):
         target_course = app_state.course_id or "默认课程"
-        st.caption(f"当前课程知识库：{target_course}")
-        if st.button("迁移当前课程旧 Chroma", use_container_width=True):
+        st.caption(maintenance_copy["caption_template"].format(course_id=target_course))
+        if st.button(maintenance_copy["repair_button"], use_container_width=True):
+            try:
+                summary = rebuild_course_knowledge(target_course, settings=st.session_state.settings)
+                st.success(format_course_repair_summary(summary))
+                app_state.build_counter += 1
+            except Exception as e:
+                st.error(format_course_maintenance_failure("repair", e))
+        if st.button(maintenance_copy["advanced_button"], use_container_width=True):
             try:
                 summary = chroma_migrate_legacy_course(target_course, settings=st.session_state.settings)
-                st.success(
-                    "已迁移 "
-                    f"{summary['migrated_chunks']} / {summary['legacy_chunks']} 个旧 chunk"
-                )
-                if summary["skipped_existing"]:
-                    st.caption(f"已存在并跳过：{summary['skipped_existing']} 个")
+                st.success(format_course_migration_summary(summary))
             except Exception as e:
-                st.error(f"迁移失败: {e}")
+                st.error(format_course_maintenance_failure("migration", e))
 
     uploader_key = f"uploader_{app_state.build_counter}"
     uploaded = st.file_uploader("上传 PDF 或 Markdown", type=["pdf", "md"], key=uploader_key)
@@ -509,7 +563,7 @@ with st.sidebar:
                 chunks = import_document(str(tmp_path), settings=cur, course_id=app_state.course_id or "")
                 summary = build(chunks, source_path=str(tmp_path), settings=cur)
                 app_state.build_counter += 1
-                st.success(f"{summary['chunks']} chunks")
+                st.success(format_build_result_message(summary))
                 st.rerun()
             except Exception as e:
                 st.error(f"失败: {e}")
@@ -612,6 +666,12 @@ def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
         with st.expander("Study Coach tool trace", expanded=False):
             for line in format_trace_lines(trace_response.get("trace", [])):
                 st.markdown(f"- {line}")
+        with st.expander("Multi-Agent timeline", expanded=False):
+            for line in format_agent_timeline(response.get("agent_trace", [])):
+                st.markdown(f"- {line}")
+        with st.expander("Critic warnings", expanded=False):
+            for line in format_critic_warnings(response.get("critic_warnings", [])):
+                st.markdown(f"- {line}")
         app_state._add_message("assistant", content=content)
     except AgentApiError as e:
         st.error(f"Study Coach API error: {e}")
@@ -644,6 +704,7 @@ def _render_history() -> None:
 def _render_evidence_tab(evidence: dict) -> None:
     citations = evidence.get("citations", [])
     registry = evidence.get("chunk_registry", {})
+    st.caption(evidence_status_summary(evidence))
     if not citations:
         st.caption("生成回答后，这里会显示引用 chunk、来源和分数。")
         return
@@ -661,6 +722,7 @@ def _render_evidence_tab(evidence: dict) -> None:
 def _render_validation_tab(evidence: dict) -> None:
     flags = evidence.get("flags", [])
     summary = validation_summary(flags)
+    st.caption(validation_status_summary(flags))
     if summary["total"] == 0:
         st.caption("最近回答暂无逐句引用校验数据。")
         return
