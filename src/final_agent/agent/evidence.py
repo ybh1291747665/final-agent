@@ -18,10 +18,10 @@ def _summary(text: str, max_chars: int = 220) -> str:
     compact = " ".join(text.split())
     if len(compact) <= max_chars:
         return compact
-    return compact[: max_chars - 3].rstrip() + "..."
+    return compact[: max_chars - 3] + "..."
 
 
-def build_evidence_snapshots(results: Sequence[ScoredChunk], *, limit: int = 3) -> list[EvidenceSnapshot]:
+def build_evidence_snapshots(results: Sequence[ScoredChunk], limit: int = 3) -> list[EvidenceSnapshot]:
     snapshots: list[EvidenceSnapshot] = []
     for result in list(results)[:limit]:
         chunk = result.chunk
@@ -40,7 +40,7 @@ def build_evidence_snapshots(results: Sequence[ScoredChunk], *, limit: int = 3) 
     return snapshots
 
 
-def build_transient_materials(results: Sequence[ScoredChunk], *, limit: int = 3) -> list[dict]:
+def build_transient_materials(results: Sequence[ScoredChunk], limit: int = 3) -> list[dict]:
     materials: list[dict] = []
     for result in list(results)[:limit]:
         chunk = result.chunk

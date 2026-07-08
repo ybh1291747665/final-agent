@@ -64,3 +64,51 @@ def test_materials_keep_full_text_for_transient_tool_inputs():
             "retrieval_source": "rrf",
         }
     ]
+
+
+def test_helpers_accept_limit_as_positional_argument():
+    from final_agent.agent.evidence import build_evidence_snapshots, build_transient_materials
+    from final_agent.schemas import Chunk, ScoredChunk
+
+    results = [
+        ScoredChunk(
+            chunk=Chunk(
+                chunk_id=f"chunk-{idx}",
+                doc_id="doc-a",
+                text="Evidence text",
+            ),
+            score=1.0,
+            source="rrf",
+        )
+        for idx in range(3)
+    ]
+
+    assert [snapshot.chunk_id for snapshot in build_evidence_snapshots(results, 2)] == [
+        "chunk-0",
+        "chunk-1",
+    ]
+    assert [material["chunk_id"] for material in build_transient_materials(results, 2)] == [
+        "chunk-0",
+        "chunk-1",
+    ]
+
+
+def test_summary_truncates_without_stripping_prefix_whitespace():
+    from final_agent.agent.evidence import build_evidence_snapshots
+    from final_agent.schemas import Chunk, ScoredChunk
+
+    results = [
+        ScoredChunk(
+            chunk=Chunk(
+                chunk_id="chunk-1",
+                doc_id="doc-a",
+                text=("a" * 216) + " " + ("b" * 20),
+            ),
+            score=1.0,
+            source="rrf",
+        )
+    ]
+
+    snapshots = build_evidence_snapshots(results)
+
+    assert snapshots[0].summary == ("a" * 216) + " ..."
