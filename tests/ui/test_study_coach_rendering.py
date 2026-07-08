@@ -68,8 +68,22 @@ def test_format_agent_timeline_includes_role_tool_status_and_latency():
     from final_agent.ui.study_coach_view import format_agent_timeline
 
     trace = [
-        {"sequence_no": 1, "agent_role": "supervisor", "tool_name": "", "ok": True, "elapsed_ms": 0, "output_summary": "Plan ready"},
-        {"sequence_no": 2, "agent_role": "retrieval", "tool_name": "search_course_material", "ok": True, "elapsed_ms": 4, "output_summary": "2 chunks"},
+        {
+            "sequence_no": 1,
+            "agent_role": "supervisor",
+            "tool_name": "",
+            "ok": True,
+            "elapsed_ms": 0,
+            "output_summary": "Plan ready",
+        },
+        {
+            "sequence_no": 2,
+            "agent_role": "retrieval",
+            "tool_name": "search_course_material",
+            "ok": True,
+            "elapsed_ms": 4,
+            "output_summary": "2 chunks",
+        },
     ]
 
     assert format_agent_timeline(trace) == [
@@ -102,7 +116,7 @@ def test_format_evidence_snapshots_prefers_file_name_and_page():
     ]
 
     assert format_evidence_snapshots(snapshots) == [
-        "**software-engineering.pdf，第 12 页** - CI - score=0.91\nCI runs automated tests."
+        "**software-engineering.pdf，第 12 页** · CI · score=0.91\nCI runs automated tests."
     ]
 
 

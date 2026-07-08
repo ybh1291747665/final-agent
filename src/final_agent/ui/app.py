@@ -32,10 +32,12 @@ from final_agent.ui.knowledge_status import format_knowledge_status
 from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_evidence_snapshots, format_study_coach_summary, format_trace_lines
 from final_agent.ui.theme import app_header_html, apple_theme_css
 from final_agent.ui.workspace import (
+    build_chunk_registry,
     course_maintenance_copy,
     course_management_guidance,
     evidence_status_summary,
     evidence_popover_config,
+    format_citation_label,
     format_course_maintenance_failure,
     format_course_migration_summary,
     format_course_repair_summary,
@@ -44,6 +46,7 @@ from final_agent.ui.workspace import (
     latest_assistant_evidence,
     mode_display_names,
     mode_group_options,
+    replace_citation_labels,
     validation_status_summary,
     validation_summary,
 )
@@ -585,12 +588,8 @@ with st.sidebar:
 
 def _build_registry(results):
     """Build chunk_registry dict from ScoredChunk list."""
-    reg = {}
-    for r in results:
-        c = r.chunk
-        h = " > ".join(c.heading_path) if c.heading_path else "(top)"
-        reg[c.chunk_id] = {"heading": h, "text": c.text, "score": r.score, "source": r.source}
-    return reg
+    docs = list_documents(settings=st.session_state.settings)
+    return build_chunk_registry(results, docs)
 
 
 def _run_hallucination_check(ans, results, cur):
@@ -610,10 +609,11 @@ def _run_hallucination_check(ans, results, cur):
     } for f in verified.flags]
 
 
-def _show_hallucination(flag_data):
+def _show_hallucination(flag_data, chunk_registry=None):
     """Display hallucination check results."""
     if not flag_data:
         return
+    chunk_registry = chunk_registry or {}
     clean_n = sum(1 for f in flag_data if not f["flagged"])
     bad_n = len(flag_data) - clean_n
     if bad_n > 0:
@@ -623,11 +623,12 @@ def _show_hallucination(flag_data):
     with st.expander(f"逐句校验 ({len(flag_data)} 处)"):
         for f in flag_data:
             sim = f["similarity_score"]
-            cid = f["cited_chunk_id"][:8]
+            cid = f["cited_chunk_id"]
+            label = format_citation_label(cid, chunk_registry.get(cid, {}))
             if f["flagged"]:
-                st.error(f"[{cid}] sim={sim:.3f}  {f['sentence'][:120]}")
+                st.error(f"[{label}] sim={sim:.3f}  {f['sentence'][:120]}")
             else:
-                st.success(f"[{cid}] sim={sim:.3f}  {f['sentence'][:120]}")
+                st.success(f"[{label}] sim={sim:.3f}  {f['sentence'][:120]}")
 
 
 def _show_citations(ans, chunk_registry):
@@ -638,10 +639,17 @@ def _show_citations(ans, chunk_registry):
         for cid in ans.citations:
             if cid in chunk_registry:
                 ci = chunk_registry[cid]
-                st.caption(f"**[{cid[:8]}]** {ci['heading']} (score={ci['score']:.3f}, {ci['source']})")
+                label = format_citation_label(cid, ci)
+                st.caption(f"**[{label}]** {ci['heading']} (score={ci['score']:.3f}, {ci['source']})")
                 st.text(ci["text"][:400])
             else:
-                st.caption(f"**[{cid[:8]}]** (未命中)")
+                st.caption(f"**[{format_citation_label(cid, {})}]** (未命中)")
+
+
+def _show_study_coach_evidence(snapshots):
+    with st.expander("Study Coach evidence", expanded=False):
+        for line in format_evidence_snapshots(snapshots or []):
+            st.markdown(f"- {line}")
 
 
 def _course_filter() -> list[str] | None:
@@ -663,9 +671,7 @@ def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
         trace_response = client.get_trace(app_state.agent_session_id)
         content = format_study_coach_summary(response, mastery_response.get("mastery", {}))
         st.markdown(content)
-        with st.expander("Study Coach evidence", expanded=False):
-            for line in format_evidence_snapshots(response.get("evidence_snapshots", [])):
-                st.markdown(f"- {line}")
+        _show_study_coach_evidence(response.get("evidence_snapshots", []))
         with st.expander("Study Coach tool trace", expanded=False):
             for line in format_trace_lines(trace_response.get("trace", [])):
                 st.markdown(f"- {line}")
@@ -675,7 +681,7 @@ def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
         with st.expander("Critic warnings", expanded=False):
             for line in format_critic_warnings(response.get("critic_warnings", [])):
                 st.markdown(f"- {line}")
-        app_state._add_message("assistant", content=content)
+        app_state._add_message("assistant", content=content, evidence_snapshots=response.get("evidence_snapshots", []))
     except AgentApiError as e:
         st.error(f"Study Coach API error: {e}")
 
@@ -685,23 +691,28 @@ def _render_history() -> None:
         role = msg["role"]
         with st.chat_message(role):
             st.markdown(msg["content"])
+            reg = msg.get("chunk_registry", {})
 
             if role == "assistant" and msg.get("flags"):
-                _show_hallucination(msg["flags"])
+                _show_hallucination(msg["flags"], reg)
 
             if role == "assistant" and msg.get("citations"):
-                reg = msg.get("chunk_registry", {})
                 with st.expander(f"引用来源 ({len(msg['citations'])} 个 chunk)"):
                     for cid in msg["citations"]:
                         if cid in reg:
                             ci = reg[cid]
+                            label = format_citation_label(cid, ci)
                             st.caption(
-                                f"**[{cid[:8]}]** {ci['heading']} "
+                                f"**[{label}]** {ci['heading']} "
                                 f"(score={ci['score']:.3f}, {ci['source']})"
                             )
                             st.text(ci["text"][:400])
                         else:
-                            st.caption(f"**[{cid[:8]}]** (未在检索结果中)")
+                            st.caption(f"**[{format_citation_label(cid, {})}]** (未在检索结果中)")
+
+
+            if role == "assistant" and msg.get("evidence_snapshots"):
+                _show_study_coach_evidence(msg.get("evidence_snapshots", []))
 
 
 def _render_evidence_tab(evidence: dict) -> None:
@@ -715,15 +726,17 @@ def _render_evidence_tab(evidence: dict) -> None:
     for cid in citations:
         if cid in registry:
             ci = registry[cid]
-            with st.expander(f"{cid[:8]} · {ci['source']} · score={ci['score']:.3f}"):
+            label = format_citation_label(cid, ci)
+            with st.expander(f"{label} · {ci['source']} · score={ci['score']:.3f}"):
                 st.caption(ci["heading"])
                 st.text(ci["text"][:700])
         else:
-            st.caption(f"**[{cid[:8]}]** (未在检索结果中)")
+            st.caption(f"**[{format_citation_label(cid, {})}]** (未在检索结果中)")
 
 
 def _render_validation_tab(evidence: dict) -> None:
     flags = evidence.get("flags", [])
+    registry = evidence.get("chunk_registry", {})
     summary = validation_summary(flags)
     st.caption(validation_status_summary(flags))
     if summary["total"] == 0:
@@ -736,12 +749,13 @@ def _render_validation_tab(evidence: dict) -> None:
     with st.expander("逐句校验详情", expanded=True):
         for flag in flags:
             sim = flag.get("similarity_score", 0)
-            cid = str(flag.get("cited_chunk_id", ""))[:8]
+            cid = str(flag.get("cited_chunk_id", ""))
+            label = format_citation_label(cid, registry.get(cid, {}))
             sentence = str(flag.get("sentence", ""))[:160]
             if flag.get("flagged"):
-                st.error(f"[{cid}] sim={sim:.3f}  {sentence}")
+                st.error(f"[{label}] sim={sim:.3f}  {sentence}")
             else:
-                st.success(f"[{cid}] sim={sim:.3f}  {sentence}")
+                st.success(f"[{label}] sim={sim:.3f}  {sentence}")
 
 
 def _render_coach_tab() -> None:
@@ -832,13 +846,14 @@ if question:
                             ans = None
 
                     if ans and ans.answer:
-                        st.markdown(ans.answer)
                         chunk_registry = _build_registry(results)
+                        display_answer = replace_citation_labels(ans.answer, chunk_registry)
+                        st.markdown(display_answer)
                         flag_data = _run_hallucination_check(ans, results, cur)
-                        _show_hallucination(flag_data)
+                        _show_hallucination(flag_data, chunk_registry)
                         _show_citations(ans, chunk_registry)
 
-                        app_state._add_message("assistant", content=ans.answer,
+                        app_state._add_message("assistant", content=display_answer,
                             flags=flag_data, citations=ans.citations, chunk_registry=chunk_registry)
 
             # ==================== Deep QA mode ====================
@@ -865,10 +880,11 @@ if question:
                             ans = None
 
                     if ans and ans.answer:
-                        st.markdown(ans.answer)
                         chunk_registry = _build_registry(results)
+                        display_answer = replace_citation_labels(ans.answer, chunk_registry)
+                        st.markdown(display_answer)
                         _show_citations(ans, chunk_registry)
-                        app_state._add_message("assistant", content=ans.answer,
+                        app_state._add_message("assistant", content=display_answer,
                             citations=ans.citations, chunk_registry=chunk_registry)
 
             # ==================== Study Coach mode ====================

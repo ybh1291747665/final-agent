@@ -34,8 +34,8 @@ def format_evidence_snapshots(snapshots: list[dict]) -> list[str]:
         heading = str(snapshot.get("heading", "") or "")
         score = float(snapshot.get("score", 0.0))
         summary = str(snapshot.get("summary", "") or "")
-        heading_part = f" - {heading}" if heading else ""
-        lines.append(f"**{label}**{heading_part} - score={score:.2f}\n{summary}")
+        heading_part = f" · {heading}" if heading else ""
+        lines.append(f"**{label}**{heading_part} · score={score:.2f}\n{summary}")
     return lines
 
 
@@ -90,13 +90,15 @@ def format_study_coach_summary(response: dict, mastery: dict[str, dict] | None =
     ]
     if feedback:
         parts.append(feedback)
-    parts.extend([
-        "",
-        f"**Next Action:** `{response.get('next_action', '') or '(pending)'}`",
-        "",
-        "**Mastery:**",
-        *mastery_lines,
-    ])
+    parts.extend(
+        [
+            "",
+            f"**Next Action:** `{response.get('next_action', '') or '(pending)'}`",
+            "",
+            "**Mastery:**",
+            *mastery_lines,
+        ]
+    )
     return "\n".join(parts)
 
 
