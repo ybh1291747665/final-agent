@@ -27,7 +27,7 @@ def test_deterministic_grader_matches_expected_points():
     assert grade.score == 1.0
     assert grade.covered_points == ["automation", "testing"]
     assert grade.missed_points == []
-    assert grade.feedback == "Covered all expected points."
+    assert grade.feedback == "Covered all expected points from the course evidence."
 
 
 def test_deterministic_grader_does_not_match_common_prefix_only():

@@ -33,7 +33,7 @@ class DeterministicGrader:
         covered = [point for point in expected_points if point.lower() in normalized]
         missed = [point for point in expected_points if point not in covered]
         score = len(covered) / len(expected_points) if expected_points else 0.0
-        if not missed and materials:
+        if not missed:
             feedback = "Covered all expected points from the course evidence."
         elif materials:
             evidence_hint = ""
@@ -43,7 +43,7 @@ class DeterministicGrader:
                 evidence_hint = f" in {heading}" if heading else ""
             feedback = f"Review course evidence{evidence_hint}: {', '.join(missed)}."
         else:
-            feedback = "Covered all expected points." if not missed else f"Review: {', '.join(missed)}"
+            feedback = f"Review: {', '.join(missed)}"
         return GradeResult(
             score=score,
             covered_points=covered,
