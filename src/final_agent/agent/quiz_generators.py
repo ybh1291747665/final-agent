@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -45,9 +46,10 @@ class DeterministicQuizGenerator:
         heading = str(first.get("heading", "")) if isinstance(first, dict) else ""
         points = [word for word in re.findall(r"[A-Za-z0-9\u4e00-\u9fff]+", text.lower()) if len(word) > 4]
         expected_points = list(dict.fromkeys(points[:3])) or [topic.lower()]
-        evidence_label = heading.capitalize() if heading else topic
+        evidence_label = heading or topic
+        digest = hashlib.blake2s(f"{topic}\0{text[:80]}\0{count}".encode("utf-8"), digest_size=4).hexdigest()
         return QuizQuestion(
-            question_id=f"quiz-{abs(hash((topic, text[:80], count))) % 100000}",
+            question_id=f"quiz-{digest}",
             topic=topic,
             prompt=f"Using the course evidence from {evidence_label}, explain {topic} and mention: {', '.join(expected_points)}.",
             expected_points=expected_points,
