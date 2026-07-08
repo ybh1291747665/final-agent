@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from final_agent.agent.evidence import build_evidence_snapshots, build_transient_materials, summarize_evidence_for_trace
 from final_agent.agent.mastery import choose_learning_action
 from final_agent.agent.models import AgentState, AgentToolTraceEntry, CriticWarning, QuizQuestion, StudyPlanStep, ToolCall, ToolResult
 from final_agent.agent.roles import AgentRole, ROLE_SEQUENCE, allowed_tools_for_role
@@ -82,6 +83,21 @@ class MultiAgentOrchestrator:
             return f"attempts={value.attempts}"
         return str(value)[:120]
 
+    def _materials_from_snapshots(self, state: AgentState) -> list[dict]:
+        return [
+            {
+                "chunk_id": snapshot.chunk_id,
+                "doc_id": snapshot.doc_id,
+                "source_path": snapshot.source_path,
+                "page_num": snapshot.page_num,
+                "heading": snapshot.heading,
+                "text": snapshot.summary,
+                "score": snapshot.score,
+                "retrieval_source": snapshot.retrieval_source,
+            }
+            for snapshot in state.evidence_snapshots
+        ]
+
     def run_turn(self, state: AgentState) -> AgentState:
         self._ensure_agent_plan(state)
 
@@ -101,10 +117,24 @@ class MultiAgentOrchestrator:
                     arguments={"query": state.learning_goal, "course_ids": state.course_ids, "top_k": 5},
                 ),
             )
+            materials: list[dict] = []
+            if retrieval.ok:
+                state.evidence_snapshots = build_evidence_snapshots(retrieval.value, limit=3)
+                materials = build_transient_materials(retrieval.value, limit=3)
+                if len(state.agent_trace) >= 2:
+                    state.agent_trace[-1].output_summary = summarize_evidence_for_trace(state.evidence_snapshots)
             quiz = self._execute(
                 state,
                 AgentRole.QUIZ,
-                ToolCall(name="generate_quiz", arguments={"topic": state.learning_goal, "course_ids": state.course_ids, "count": 1}),
+                ToolCall(
+                    name="generate_quiz",
+                    arguments={
+                        "topic": state.learning_goal,
+                        "course_ids": state.course_ids,
+                        "count": 1,
+                        "materials": materials,
+                    },
+                ),
             )
             if not quiz.ok:
                 state.status = "failed"
@@ -132,7 +162,7 @@ class MultiAgentOrchestrator:
                         "question": state.quiz.prompt,
                         "expected_points": state.quiz.expected_points,
                         "learner_answer": state.learner_answer,
-                        "materials": [],
+                        "materials": self._materials_from_snapshots(state),
                     },
                 ),
             )
@@ -157,7 +187,10 @@ class MultiAgentOrchestrator:
             evidence = self._execute(
                 state,
                 AgentRole.CRITIC,
-                ToolCall(name="verify_evidence", arguments={"quiz_prompt": state.quiz.prompt, "evidence_count": 0}),
+                ToolCall(
+                    name="verify_evidence",
+                    arguments={"quiz_prompt": state.quiz.prompt, "evidence_count": len(state.evidence_snapshots)},
+                ),
             )
             consistency = self._execute(
                 state,
