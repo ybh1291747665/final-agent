@@ -29,6 +29,7 @@ class GenerateQuizInput(BaseModel):
     topic: str
     course_ids: list[str] = Field(default_factory=list)
     count: int = 1
+    materials: list[Any] = Field(default_factory=list)
 
 
 class GradeAnswerInput(BaseModel):
@@ -85,8 +86,12 @@ def generate_quiz(
     count: int = 1,
     *,
     quiz_generator=None,
+    materials: list[Any] | None = None,
 ) -> ToolResult:
     generator = quiz_generator or DeterministicQuizGenerator()
+    selected_materials = [] if materials is None else materials
+    if hasattr(generator, "generate_with_evidence"):
+        return run_tool(lambda: generator.generate_with_evidence(topic, course_ids or [], count, materials=selected_materials))
     return run_tool(lambda: generator.generate(topic, course_ids or [], count))
 
 

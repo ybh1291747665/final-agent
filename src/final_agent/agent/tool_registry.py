@@ -87,7 +87,13 @@ def build_default_tool_registry(repository=None, quiz_generator=None, grader=Non
             name="generate_quiz",
             input_model=tools.GenerateQuizInput,
             operation=lambda payload: unwrap(
-                tools.generate_quiz(payload.topic, payload.course_ids, payload.count, quiz_generator=quiz_generator)
+                tools.generate_quiz(
+                    payload.topic,
+                    payload.course_ids,
+                    payload.count,
+                    quiz_generator=quiz_generator,
+                    materials=payload.materials,
+                )
             ),
         )
     )
