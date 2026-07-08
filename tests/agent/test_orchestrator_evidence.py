@@ -102,6 +102,48 @@ def test_answer_turn_rebuilds_grader_materials_from_snapshots_and_counts_critic_
     assert evidence_call.arguments["evidence_count"] == 1
 
 
+def test_initial_turn_clears_stale_evidence_when_retrieval_fails():
+    from final_agent.agent.models import AgentState, EvidenceSnapshot, QuizQuestion, ToolResult
+    from final_agent.agent.orchestrator import MultiAgentOrchestrator
+
+    calls = []
+
+    class FakeRegistry:
+        def execute(self, role, call, *, allowed_tools):
+            calls.append(call)
+            if call.name == "search_course_material":
+                return ToolResult(ok=False, error="search unavailable")
+            if call.name == "generate_quiz":
+                return ToolResult(
+                    ok=True,
+                    value=QuizQuestion(
+                        question_id="q1",
+                        topic=call.arguments["topic"],
+                        prompt="Fallback quiz.",
+                        expected_points=["fallback"],
+                    ),
+                )
+            raise AssertionError(f"Unexpected tool call: {call.name}")
+
+    state = AgentState(
+        session_id="s1",
+        learning_goal="review CI",
+        evidence_snapshots=[
+            EvidenceSnapshot(
+                chunk_id="old-chunk",
+                summary="Stale evidence from a previous turn.",
+            )
+        ],
+    )
+
+    state = MultiAgentOrchestrator(registry=FakeRegistry()).run_turn(state)
+
+    quiz_call = calls[1]
+    assert state.status == "waiting_for_answer"
+    assert state.evidence_snapshots == []
+    assert quiz_call.arguments["materials"] == []
+
+
 def _scored_chunk(index: int):
     from final_agent.schemas import Chunk, ScoredChunk
 

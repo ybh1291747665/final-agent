@@ -118,6 +118,7 @@ class MultiAgentOrchestrator:
                 ),
             )
             materials: list[dict] = []
+            state.evidence_snapshots = []
             if retrieval.ok:
                 state.evidence_snapshots = build_evidence_snapshots(retrieval.value, limit=3)
                 materials = build_transient_materials(retrieval.value, limit=3)
