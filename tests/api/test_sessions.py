@@ -7,21 +7,21 @@ import pytest
 @pytest.mark.anyio
 async def test_session_api_contract(tmp_path, monkeypatch):
     from final_agent.agent.graders import DeterministicGrader
+    from final_agent.agent.quiz_generators import DeterministicQuizGenerator
     from final_agent.api.app import create_app
     from final_agent.agent.models import ToolResult
     from final_agent.memory.repository import MemoryRepository
     import final_agent.agent.graph as graph_module
-    import final_agent.api.app as api_app_module
 
     monkeypatch.setattr(
         graph_module,
         "search_course_material",
         lambda query, course_ids, top_k: ToolResult(ok=True, value=[], elapsed_ms=1),
     )
-    monkeypatch.setattr(api_app_module, "_warm_knowledge_cache", lambda: None)
 
     app = create_app(
         repository=MemoryRepository(tmp_path / "api.sqlite"),
+        quiz_generator=DeterministicQuizGenerator(),
         grader=DeterministicGrader(),
     )
     transport = httpx.ASGITransport(app=app)
@@ -56,10 +56,6 @@ async def test_session_api_contract(tmp_path, monkeypatch):
 async def test_session_api_returns_conflict_for_answer_before_question(tmp_path):
     from final_agent.api.app import create_app
     from final_agent.memory.repository import MemoryRepository
-    import final_agent.api.app as api_app_module
-
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(api_app_module, "_warm_knowledge_cache", lambda: None)
 
     app = create_app(repository=MemoryRepository(tmp_path / "api.sqlite"))
     transport = httpx.ASGITransport(app=app)
@@ -67,10 +63,9 @@ async def test_session_api_returns_conflict_for_answer_before_question(tmp_path)
         response = await client.post("/sessions/missing/messages", json={"message": "hello"})
 
         assert response.status_code == 404
-    monkeypatch.undo()
 
 
-def test_create_app_preloads_knowledge(tmp_path, monkeypatch):
+def test_create_app_does_not_preload_knowledge(tmp_path, monkeypatch):
     from final_agent.api import app as api_app_module
     from final_agent.memory.repository import MemoryRepository
 
@@ -90,29 +85,28 @@ def test_create_app_preloads_knowledge(tmp_path, monkeypatch):
 
     api_app_module.create_app(repository=MemoryRepository(tmp_path / "api.sqlite"))
 
-    assert calls["chunks"] == ["chunk-a", "chunk-b"]
-    assert calls["get_all_settings"] is not None
-    assert calls["load_settings"] is not None
+    assert calls == {}
 
 
-def test_agent_service_passes_quiz_generator_to_workflow(tmp_path, monkeypatch):
+def test_agent_service_uses_injected_orchestrator(tmp_path):
     from final_agent.api.app import AgentService
     from final_agent.api.schemas import CreateSessionRequest
     from final_agent.memory.repository import MemoryRepository
 
-    calls = {}
+    class FakeOrchestrator:
+        def __init__(self):
+            self.called = False
 
-    def fake_run_study_turn(state, repository=None, quiz_generator=None, grader=None):
-        calls["quiz_generator"] = quiz_generator
-        state.status = "waiting_for_answer"
-        return state
+        def run_turn(self, state):
+            self.called = True
+            state.status = "waiting_for_answer"
+            return state
 
-    monkeypatch.setattr("final_agent.api.app.run_study_turn", fake_run_study_turn)
-
-    service = AgentService(MemoryRepository(tmp_path / "api.sqlite"), quiz_generator=object())
+    orchestrator = FakeOrchestrator()
+    service = AgentService(MemoryRepository(tmp_path / "api.sqlite"), orchestrator=orchestrator)
     service.create_session(CreateSessionRequest(learning_goal="review CI", course_ids=[]))
 
-    assert calls["quiz_generator"] is service.quiz_generator
+    assert orchestrator.called is True
 
 
 def test_agent_service_defaults_to_llm_grader(tmp_path):
@@ -126,21 +120,35 @@ def test_agent_service_defaults_to_llm_grader(tmp_path):
     assert isinstance(service.grader.fallback, DeterministicGrader)
 
 
-def test_agent_service_passes_grader_to_workflow(tmp_path, monkeypatch):
+def test_agent_service_selects_default_quiz_generator_from_settings(tmp_path, monkeypatch):
+    from final_agent.agent.quiz_generators import LlmQuizGenerator
+    from final_agent.api import app as api_app_module
     from final_agent.api.app import AgentService
-    from final_agent.api.schemas import CreateSessionRequest
     from final_agent.memory.repository import MemoryRepository
+    from final_agent.settings import Settings
 
-    calls = {}
-
-    def fake_run_study_turn(state, repository=None, quiz_generator=None, grader=None):
-        calls["grader"] = grader
-        state.status = "waiting_for_answer"
-        return state
-
-    monkeypatch.setattr("final_agent.api.app.run_study_turn", fake_run_study_turn)
+    settings = Settings()
+    settings.models_llm.api_key = "sk-live"
+    monkeypatch.setattr(api_app_module, "load_settings", lambda: settings)
 
     service = AgentService(MemoryRepository(tmp_path / "api.sqlite"))
-    service.create_session(CreateSessionRequest(learning_goal="review CI", course_ids=[]))
 
-    assert calls["grader"] is service.grader
+    assert isinstance(service.quiz_generator, LlmQuizGenerator)
+
+
+@pytest.mark.anyio
+async def test_health_endpoint_reports_service_readiness(tmp_path):
+    from final_agent.api.app import create_app
+    from final_agent.memory.repository import MemoryRepository
+
+    app = create_app(repository=MemoryRepository(tmp_path / "api.sqlite"))
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "study-coach-api",
+        "storage": "sqlite",
+    }
