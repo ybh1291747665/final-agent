@@ -22,12 +22,14 @@ from final_agent.knowledge.bm25_index import (
 )
 from final_agent.knowledge.metadata import (
     create_course,
+    delete_empty_course,
     list_course_index_info,
     list_courses,
     list_documents,
     remove_document,
     total_chunks as metadata_total,
 )
+from final_agent.knowledge.maintenance import rebuild_course_knowledge
 
 __all__ = [
     "build",
@@ -49,8 +51,10 @@ __all__ = [
     "bm25_delete_doc",
     "list_documents",
     "create_course",
+    "delete_empty_course",
     "list_course_index_info",
     "metadata_total",
     "remove_document",
     "list_courses",
+    "rebuild_course_knowledge",
 ]

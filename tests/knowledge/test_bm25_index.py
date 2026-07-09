@@ -32,7 +32,7 @@ def test_build_rebuilds_only_ingested_course_and_registers_snapshot_path(tmp_pat
         "add_chunks",
         lambda pairs, *, settings: recorded.setdefault("added_chunk_ids", [chunk.chunk_id for chunk, _ in pairs]),
     )
-    monkeypatch.setattr(builder, "get_all_chunks", lambda *, settings: list(all_chunks))
+    monkeypatch.setattr(builder, "get_chunks_by_course", lambda course_id, *, settings: [chunk for chunk in all_chunks if chunk.course_id == course_id])
 
     def fake_build_index_for_course(course_id, scoped_chunks, *, settings):
         recorded["rebuilt_course_id"] = course_id
@@ -57,6 +57,9 @@ def test_build_rebuilds_only_ingested_course_and_registers_snapshot_path(tmp_pat
         "doc_id": "doc-a",
         "course_id": "course-a",
         "bm25_scope_chunks": 3,
+        "content_signature": summary["content_signature"],
+        "skipped": False,
+        "skip_reason": "",
     }
     assert recorded["added_chunk_ids"] == ["a-new-1", "a-new-2"]
     assert recorded["rebuilt_course_id"] == "course-a"
@@ -67,7 +70,61 @@ def test_build_rebuilds_only_ingested_course_and_registers_snapshot_path(tmp_pat
         "chunk_count": 2,
         "course_id": "course-a",
         "bm25_snapshot_path": str(course_index_path("course-a", settings)),
+        "content_signature": summary["content_signature"],
     }
+
+
+def test_build_skips_unchanged_document_when_signature_matches(tmp_path, monkeypatch):
+    from final_agent.knowledge import builder
+    from final_agent.knowledge.metadata import register_document
+    from final_agent.schemas import Chunk
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+    chunks = [
+        Chunk(chunk_id="a1", doc_id="doc-a", course_id="course-a", text="automation testing"),
+        Chunk(chunk_id="a2", doc_id="doc-a", course_id="course-a", text="ci pipelines"),
+    ]
+    signature = builder.chunk_content_signature(chunks)
+    register_document(
+        "doc-a",
+        "course-a/lesson.md",
+        2,
+        settings=settings,
+        course_id="course-a",
+        content_signature=signature,
+    )
+    calls: dict[str, int] = {"embed": 0, "add": 0, "rebuild": 0}
+
+    def fail_embed(received, *, settings):
+        calls["embed"] += 1
+        raise AssertionError("unchanged document should not be embedded")
+
+    def fail_add(pairs, *, settings):
+        calls["add"] += 1
+        raise AssertionError("unchanged document should not be written")
+
+    def fail_rebuild(course_id, scoped_chunks, *, settings):
+        calls["rebuild"] += 1
+        raise AssertionError("unchanged document should not rebuild sparse index")
+
+    monkeypatch.setattr(builder, "embed_chunks", fail_embed)
+    monkeypatch.setattr(builder, "add_chunks", fail_add)
+    monkeypatch.setattr(builder, "build_index_for_course", fail_rebuild)
+
+    summary = builder.build(chunks, source_path="course-a/lesson.md", settings=settings)
+
+    assert summary == {
+        "chunks": 2,
+        "doc_id": "doc-a",
+        "course_id": "course-a",
+        "bm25_scope_chunks": 0,
+        "content_signature": signature,
+        "skipped": True,
+        "skip_reason": "unchanged-document",
+    }
+    assert calls == {"embed": 0, "add": 0, "rebuild": 0}
 
 
 def test_build_empty_summary_matches_non_empty_shape():
@@ -352,8 +409,9 @@ def test_delete_by_doc_id_prefers_metadata_snapshot_path(tmp_path):
 
 
 def test_knowledge_package_reexports_bm25_helpers():
-    from final_agent.knowledge import build_index_for_course, course_index_path, ensure_course_loaded
+    from final_agent.knowledge import build_index_for_course, chroma_get_course_chunks, course_index_path, ensure_course_loaded
 
     assert callable(build_index_for_course)
+    assert callable(chroma_get_course_chunks)
     assert callable(course_index_path)
     assert callable(ensure_course_loaded)

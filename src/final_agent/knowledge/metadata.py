@@ -13,6 +13,7 @@ from final_agent.settings import Settings, load_settings
 logger = logging.getLogger(__name__)
 
 _METADATA_CACHE: Optional[dict] = None
+_METADATA_CACHE_PATH: Optional[Path] = None
 
 
 def _metadata_path(settings: Settings) -> Path:
@@ -20,23 +21,26 @@ def _metadata_path(settings: Settings) -> Path:
 
 
 def _load(settings: Settings) -> dict:
-    global _METADATA_CACHE
-    if _METADATA_CACHE is not None:
+    global _METADATA_CACHE, _METADATA_CACHE_PATH
+    path = _metadata_path(settings).resolve()
+    if _METADATA_CACHE is not None and _METADATA_CACHE_PATH == path:
         return _METADATA_CACHE
-    path = _metadata_path(settings)
     if path.exists():
         _METADATA_CACHE = json.loads(path.read_text(encoding="utf-8"))
         _METADATA_CACHE.setdefault("documents", {})
         _METADATA_CACHE.setdefault("courses", [])
     else:
         _METADATA_CACHE = {"documents": {}, "courses": []}
+    _METADATA_CACHE_PATH = path
     return _METADATA_CACHE
 
 
 def _save(settings: Settings) -> None:
+    global _METADATA_CACHE_PATH
     if _METADATA_CACHE is None:
         return
-    path = _metadata_path(settings)
+    path = _metadata_path(settings).resolve()
+    _METADATA_CACHE_PATH = path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(_METADATA_CACHE, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -49,6 +53,7 @@ def register_document(
     *,
     course_id: str = "",
     bm25_snapshot_path: str = "",
+    content_signature: str = "",
 ) -> None:
     """Record a document in the metadata store."""
     if settings is None:
@@ -61,6 +66,7 @@ def register_document(
         "course_id": normalized_course,
         "imported_at": datetime.now().isoformat(),
         "bm25_snapshot_path": bm25_snapshot_path,
+        "content_signature": content_signature,
     }
     _save(settings)
     logger.info("Metadata: registered doc_id=%s (%d chunks)", doc_id, chunk_count)
@@ -121,6 +127,29 @@ def create_course(course_id: str, settings: Settings | None = None) -> bool:
     if normalized in courses:
         return False
     courses.add(normalized)
+    data["courses"] = sorted(courses)
+    _save(settings)
+    return True
+
+
+def delete_empty_course(course_id: str, settings: Settings | None = None) -> bool:
+    """Delete an explicitly-created course only when no documents belong to it."""
+    if settings is None:
+        settings = load_settings()
+    normalized = course_id.strip()
+    if not normalized:
+        return False
+    data = _load(settings)
+    has_documents = any(
+        info.get("course_id", "默认课程") == normalized
+        for info in data.get("documents", {}).values()
+    )
+    if has_documents:
+        return False
+    courses = set(data.setdefault("courses", []))
+    if normalized not in courses:
+        return False
+    courses.remove(normalized)
     data["courses"] = sorted(courses)
     _save(settings)
     return True
