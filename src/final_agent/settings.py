@@ -72,7 +72,7 @@ class VisionSettings(BaseModel):
     max_images_per_doc: int = 50
     prompt: str = "请详细描述这张图片的内容。如果图片包含文字、公式、图表或数据，请逐一提取并说明。"
     # PDF→Markdown (Doubao API)
-    page_dpi: int = 200
+    page_dpi: int = 150
     max_pages: int = 100
     pages_per_batch: int = 3
     concurrent_batches: int = 5

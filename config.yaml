@@ -64,7 +64,7 @@ vision:
   prompt: "请详细描述这张图片的内容。如果图片包含文字、公式、图表或数据，请逐一提取并说明。"
 
   # PDF→Markdown (Doubao API)
-  page_dpi: 200             # PDF 渲染分辨率
+  page_dpi: 150             # PDF 渲染分辨率；150 更快，200 更清晰
   max_pages: 100            # 单文档最大处理页数
   pages_per_batch: 3        # 每批发送的页数（利用跨页上下文）
   concurrent_batches: 5     # 并行调用批次数（加速解析）

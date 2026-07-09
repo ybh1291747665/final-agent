@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import httpx
@@ -10,8 +11,9 @@ class AgentApiError(RuntimeError):
 
 
 class AgentApiClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:8000", http_client: httpx.Client | None = None):
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, base_url: str | None = None, http_client: httpx.Client | None = None):
+        resolved_base_url = base_url or os.environ.get("FINAL_AGENT_API_BASE_URL", "http://127.0.0.1:8000")
+        self.base_url = resolved_base_url.rstrip("/")
         self.client = http_client or httpx.Client(base_url=self.base_url, timeout=httpx.Timeout(10.0, connect=3.0))
 
     def _request(self, method: str, path: str, **kwargs) -> dict[str, Any]:

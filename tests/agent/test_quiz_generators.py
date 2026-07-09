@@ -42,3 +42,27 @@ def test_llm_quiz_generator_falls_back_to_deterministic_on_bad_json(monkeypatch)
     assert quiz.topic == "review CI"
     assert meta.implementation == "deterministic-fallback"
     assert "json" in meta.fallback_reason.lower()
+
+
+def test_select_quiz_generator_uses_llm_when_api_key_is_configured():
+    from final_agent.agent.quiz_generators import LlmQuizGenerator, select_quiz_generator
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.models_llm.api_key = "sk-live"
+
+    generator = select_quiz_generator(settings)
+
+    assert isinstance(generator, LlmQuizGenerator)
+
+
+def test_select_quiz_generator_keeps_deterministic_without_api_key():
+    from final_agent.agent.quiz_generators import DeterministicQuizGenerator, select_quiz_generator
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.models_llm.api_key = ""
+
+    generator = select_quiz_generator(settings)
+
+    assert isinstance(generator, DeterministicQuizGenerator)

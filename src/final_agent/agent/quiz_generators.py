@@ -8,7 +8,7 @@ from typing import Any
 
 from final_agent.agent.models import QuizQuestion
 from final_agent.generation.llm_client import generate as llm_generate
-from final_agent.settings import load_settings
+from final_agent.settings import Settings, load_settings
 
 
 @dataclass
@@ -94,3 +94,10 @@ class LlmQuizGenerator:
     def generate(self, topic: str, course_ids: list[str] | None = None, count: int = 1) -> QuizQuestion:
         quiz, _ = self.generate_with_meta(topic, course_ids, count)
         return quiz
+
+
+def select_quiz_generator(settings: Settings) -> DeterministicQuizGenerator | LlmQuizGenerator:
+    api_key = settings.models_llm.api_key.strip()
+    if api_key and not api_key.startswith("sk-your-"):
+        return LlmQuizGenerator(fallback=DeterministicQuizGenerator())
+    return DeterministicQuizGenerator()

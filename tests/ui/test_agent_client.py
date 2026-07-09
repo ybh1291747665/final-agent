@@ -25,3 +25,13 @@ def test_agent_client_raises_readable_error_on_non_2xx():
 
     with pytest.raises(AgentApiError, match="temporary"):
         client.get_session("s1")
+
+
+def test_agent_client_reads_base_url_from_environment(monkeypatch):
+    from final_agent.ui.agent_client import AgentApiClient
+
+    monkeypatch.setenv("FINAL_AGENT_API_BASE_URL", "http://127.0.0.1:9001/")
+
+    client = AgentApiClient(http_client=httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={}))))
+
+    assert client.base_url == "http://127.0.0.1:9001"
