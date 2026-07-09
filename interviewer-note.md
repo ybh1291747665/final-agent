@@ -367,3 +367,314 @@
 - **Verification:** `conda run -n final-agent python -m pytest tests/agent/test_graders.py tests/agent/test_tools.py tests/agent/test_graph.py tests/api/test_sessions.py -v`
 - **Result:** grading seam、默认部署策略和 trace observability 都有测试覆盖，后续真实部署只需要在启动装配层替换 grader 实现。
 - **Resume impact:** can mention startup-time assembly and reserved `materials` hook for grounded grading
+
+## Phase 11 — Knowledgebase Scaling / Course-Scoped Sparse Index
+
+### Issue: 知识库变大后，BM25 全局快照和启动预热会拖慢 UI/API 启动与检索
+
+- **Date:** 2026-06-26
+- **Status:** resolved
+- **Where:** `src/final_agent/knowledge/metadata.py`, `src/final_agent/knowledge/bm25_index.py`, `src/final_agent/knowledge/builder.py`, `src/final_agent/retrieval/hybrid_searcher.py`, `src/final_agent/ui/app.py`, `src/final_agent/api/app.py`
+- **Symptom:** 知识库增大后，BM25 仍按“全库一个缓存”处理；UI 和 FastAPI 启动时还会阻塞式预热知识库，导致初始化慢，检索成本随全库增长而不是随选中课程增长。
+- **Root cause:** 稀疏检索层把 BM25 当作一个全局缓存，没有课程级快照路由；导入/删除时会影响整库；检索前也没有真正按课程惰性装载。
+- **Options considered:**
+  - Option A: 继续保留全局 BM25 快照，只优化 warmup 时机。
+  - Option B: 把 BM25 拆成课程级快照，metadata 记录 snapshot path，导入/删除只重建受影响课程，检索时按课程懒加载。
+- **Decision:** 选择 Option B。保留 Chroma 作为 dense store，把 BM25 改造成 course-scoped sparse partitions，并移除 UI/API 启动时的阻塞预热。
+- **Fix:**
+  - `metadata.py`: `register_document()` 新增 `bm25_snapshot_path`，新增 `list_course_index_info()` 聚合课程级 chunk/document/snapshot 信息。
+  - `bm25_index.py`: 新增 `course_index_path()`、`build_index_for_course()`、`ensure_course_loaded()`；删除文档时优先使用 metadata 记录的 snapshot path 回写。
+  - `builder.py`: 导入时只重建当前课程的 BM25 分区，并把 snapshot path 写回 metadata。
+  - `hybrid_searcher.py`: sparse 检索改为按课程逐个懒加载；支持单课程、多课程、无 scope 三种路径；不再每次 `get_all_chunks()` 全库扫描。
+  - `api/app.py`: 删除 `create_app()` 里的 eager BM25 warmup。
+  - `ui/app.py`: 删除启动时全量知识库 warmup，改为展示 readiness 状态；新增 `ui/knowledge_status.py` 负责纯文本状态格式化。
+- **Tests added:**
+  - `tests/knowledge/test_metadata.py`
+  - `tests/knowledge/test_bm25_index.py`
+  - `tests/retrieval/test_hybrid_searcher.py`
+  - `tests/ui/test_knowledge_status.py`
+  - `tests/api/test_sessions.py` 同步改成断言 app 启动不再预热知识库
+- **Verification:**
+  - `conda run -n final-agent python -m pytest tests/knowledge/test_metadata.py tests/knowledge/test_bm25_index.py tests/retrieval/test_hybrid_searcher.py tests/retrieval/test_pipeline.py tests/api/test_sessions.py tests/ui/test_knowledge_status.py tests/ui/test_study_coach_rendering.py -v`
+  - `conda run -n final-agent python -m ruff check src tests`
+  - `conda run -n final-agent python -m pytest --cov=final_agent --cov-report=term-missing`
+- **Result:** 关键回归通过；当前全量 `70 passed`。知识库启动路径从“阻塞预热”改为“按课程惰性装载”，更适合后续知识库继续增长。
+- **Resume impact:** can mention course-scoped sparse indexing, lazy retrieval loading, and startup readiness instead of eager warmup
+
+## Phase 12 — Apple 风格 Streamlit UI 重构计划
+
+### Issue: 前端需要从功能原型界面升级为 Apple-like 学习工作台，同时确认是否牵动后端
+
+- **Date:** 2026-06-29
+- **Status:** planned
+- **Where:** `src/final_agent/ui/app.py`, `src/final_agent/ui/study_coach_view.py`, `src/final_agent/ui/agent_client.py`, `src/final_agent/api/app.py`, `src/final_agent/api/schemas.py`
+- **Symptom:** 当前 Streamlit UI 已覆盖上传、问答、总结、课程切换、幻觉校验和 Study Coach，但信息层级偏功能堆叠，视觉还停留在原型阶段。
+- **Root cause:** 之前的开发优先保证 RAG、知识库扩容、Study Coach workflow 和证据路径可运行；产品交互层尚未单独做视觉系统和信息架构整理。
+- **Options considered:**
+  - Option A: 迁移到独立 React/Next 前端，更容易做精细 Apple 风格交互，但需要把现有 Streamlit 直调 Python 模块的路径 API 化，架构改动大。
+  - Option B: 保留 Streamlit，在现有架构内做 Apple-like redesign，最快落地，并最大限度复用现有 RAG 和 Study Coach 调用路径。
+- **Decision:** 选择 Option B。用户明确选择保留 Streamlit，而不是迁移 React/Next 独立前端。
+- **Design definition:** Apple 风格在本项目中定义为工具型产品 UI：浅色背景、系统字体、柔和分区、清晰状态卡片、克制蓝色强调、低噪音层级；不做 Apple 官网式营销 hero。
+- **Planned UI change:** 重组侧边栏与主工作区，让学习会话、检索范围、知识库、模型/API 配置、引用、幻觉校验和 Study Coach 状态更容易扫读。
+- **Backend impact check:** grill 检查结论是前端表现层改变不会迫使 FastAPI、Pydantic schema、SQLite memory 或 agent graph 改动。
+- **Why backend can stay unchanged:** Study Coach API 已能提供 session、mastery、trace；本次前端只重新组织这些字段的展示，不新增字段。
+- **Optional backend follow-up:** 后续可考虑 `/health` endpoint、可配置 `AgentApiClient` base URL、错误状态细分，但它们不是本次 UI 重构的前置条件。
+- **Verification plan:** 文档层先记录架构边界和决策；实现 UI 时再跑 `tests/ui`、`tests/api` 与手动 Streamlit 验收。
+
+---
+
+## Phase 12 — Multi-Agent Study Coach Architecture
+
+### Decision: 多 Agent 范围限定为 Multi-Agent Study Coach
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** 下一阶段的“多 agent 协作”定义为 **Multi-Agent Study Coach**：多个固定角色 agent 围绕学习闭环协作，而不是通用自治 agent 平台。
+- **Decision reason:** 当前项目最强的定位是本地优先、课程知识库驱动、可测试、可解释的学习系统。直接做通用自治平台会削弱 bounded workflow 的可信度，也会让测试、UI trace 和项目汇报变得发散。
+- **Rejected alternative:** 通用 agent swarm / open-ended autonomous agent platform。它更酷但边界不清，容易引入无限规划、不可控 tool calling、难以复现的结果。
+- **Architecture implication:** 保留现有 `Study Coach` 学习闭环作为主线，只把单一 workflow 拆成固定职责 agent：Supervisor、Retrieval、Quiz、Grader、Coach、Critic。
+- **Resume/interview framing:** 不是“我做了一个全自治 agent”，而是“我把 RAG 学习系统升级为 bounded multi-agent learning workflow，并保留 typed tools、trace、memory 和 deterministic regression tests。”
+
+### Decision: v1 采用固定顺序协作
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Multi-Agent Study Coach v1 采用 **Fixed Sequential Collaboration**，即固定顺序执行：Supervisor -> Retrieval -> Quiz -> wait_for_answer -> Grader -> Coach -> Critic -> final response。
+- **Decision reason:** 现有 `run_study_turn` 已经是顺序 bounded workflow，固定顺序迁移成本最低，最容易保持测试稳定，也最容易在 Streamlit 中展示“哪个 agent 做了什么”。
+- **Rejected alternative:** 第一版就做并行 agent 或 supervisor 动态自由调度。并行和动态调度会让 tool-call limit、失败恢复、trace 顺序、UI timeline 和离线评测复杂度显著上升。
+- **Architecture implication:** 第一阶段先重构 agent 边界和 tool call trace，不改变用户可见学习闭环；并行检索、并行 critique、动态调度作为后续演进点。
+- **Testing implication:** 每个 agent 的输入、输出、allowed tools 和 trace entry 都可以独立断言；端到端测试仍保持 deterministic fallback。
+
+### Decision: v1 固定为 6 个 Agent Role
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Multi-Agent Study Coach v1 固定为 6 个角色：Supervisor Agent、Retrieval Agent、Quiz Agent、Grader Agent、Coach Agent、Critic Agent。
+- **Decision reason:** 这 6 个角色刚好覆盖现有学习闭环的关键责任边界：规划、检索证据、出题、批改、更新掌握度/选择下一步、最终一致性检查。它们能把当前单 workflow 拆成清晰的可解释协作链，而不改变用户可见主流程。
+- **Rejected alternative:** 第一版加入 Planner Agent、Memory Agent、Reflection Agent、Research Agent 等更多角色。现有系统已经有 plan、SQLite memory、tool trace 和 retrieval/generation 层；过度拆分会变成“为了多 agent 而多 agent”，增加 UI 和测试噪音。
+- **Architecture implication:** `agent/` 层后续应新增 role-level abstraction，但 memory、tool registry、retrieval 和 grading adapter 不需要被重新命名成 agent；它们仍是被角色调用的能力。
+- **Testing implication:** 每个角色都应有 allowed tools、输入/输出 schema 和 trace entry；第一版测试重点是角色边界和工具调用顺序，而不是模型自主规划质量。
+- **Resume impact:** can describe a bounded multi-agent learning workflow with six fixed roles, typed tool calls, persistent memory, and explainable traces.
+
+### Decision: Specialist Agent 使用严格 Tool Boundary
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Supervisor Agent 不直接调用业务 tools，只负责编排；每个 specialist agent 只能调用自己的 allowed tools。
+- **Allowed tools:**
+  - Supervisor Agent: none
+  - Retrieval Agent: `search_course_material`, `summarize_course`
+  - Quiz Agent: `generate_quiz`
+  - Grader Agent: `grade_answer`
+  - Coach Agent: `get_learning_profile`, `update_mastery`
+  - Critic Agent: `verify_evidence`, `verify_grade_consistency`
+- **Decision reason:** 如果 Supervisor 能直接 search/generate/grade，它会变成万能 agent，其他角色只剩命名装饰，多 agent 边界会失真。严格 tool boundary 能让职责、trace、测试和 UI timeline 都更清楚。
+- **Rejected alternative:** 所有 agent 共用全局工具池，由 prompt 自觉遵守职责。这个方案实现快，但很难证明角色边界，也容易出现“看起来多 agent，实际还是一个万能 agent”的问题。
+- **Architecture implication:** 后续 tool registry 需要支持 role-level allowlist；`verify_evidence` 和 `verify_grade_consistency` 是 Critic Agent 需要补的新 typed tools。
+- **Testing implication:** 测试必须覆盖“角色不能调用未授权 tool”的失败路径，并验证 trace 能记录 agent role、tool name、input summary、ok/error 和 elapsed time。
+
+### Decision: v1 Tool Calling 采用 Internal Typed Tool Calling
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Multi-Agent Study Coach v1 的 tool calling 采用项目内部协议：agent 产出 `ToolCall(name, arguments)`，`ToolRegistry` 校验 role permission 和 Pydantic arguments，执行 Python tool 后返回 `ToolResult`。
+- **Decision reason:** 当前项目已有 Python typed tools 和 Pydantic schema，内部协议最容易保持离线可测、可解释和跨模型稳定。这样 tool calling 的核心契约属于项目本身，而不是某个 LLM provider 的 function calling JSON 格式。
+- **Rejected alternative:** 第一版直接依赖 DeepSeek/OpenAI native function calling，让模型按 provider 协议决定工具调用。这个方案更接近真实 agent demo，但会让测试依赖模型行为和 provider 格式，也会增加解析/错误恢复复杂度。
+- **Architecture implication:** Provider-native function calling 后续作为 adapter 接入：把模型返回的 tool call 转换成内部 `ToolCall`，再交给同一个 registry 执行。
+- **Testing implication:** v1 测试重点是内部 `ToolCall` schema、role allowlist、argument validation、tool execution result 和 trace persistence；不把 live model tool selection 作为稳定回归条件。
+
+### Decision: Trace 升级为 Agent Tool Trace，但只保存摘要
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** 后续 trace 从 tool-only trace 升级为 **Agent Tool Trace**，记录 `sequence_no`, `agent_role`, `tool_name`, `input_summary`, `output_summary`, `ok`, `elapsed_ms`, `error`, `fallback_reason`。
+- **Decision reason:** 多 agent 协作需要回答“哪个 agent 调了哪个 tool、结果如何、是否 fallback”，但 trace 的目的不是保存完整 prompt/chunk/raw model response。摘要级 trace 更适合 UI timeline、debug、测试和面试讲解。
+- **Rejected alternative:** 把完整 prompt、完整 retrieved chunks、完整 learner answer、raw LLM response 全部写入 SQLite trace。这样短期调试方便，但会让数据库膨胀，增加隐私风险，也让 UI 和测试被噪音淹没。
+- **Architecture implication:** 需要扩展现有 `ToolTraceEntry` / SQLite `tool_traces` schema；完整证据仍通过 citation registry、chunk store 或按需查询展示，不塞进 trace。
+- **Testing implication:** 测试应断言 trace 的 role、tool、摘要、fallback_reason 和顺序，而不是依赖完整自然语言 prompt。
+
+### Decision: Critic Agent v1 只提示不阻断
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Critic Agent v1 执行 `verify_evidence` 和 `verify_grade_consistency` 后只产出 non-blocking flags/warnings，并附加到 response 与 trace；它不阻断主学习回合。
+- **Decision reason:** 第一版 Critic 的核心价值是增加可解释性和可观察性，而不是改变控制流。阻断式 Critic 会引入重试、回滚、重新生成 quiz/regrade、用户等待时间和更复杂的失败恢复。
+- **Rejected alternative:** Critic 一旦发现问题就停止回答、强制 regenerate quiz 或 regrade。这个方案更“智能”，但会让 v1 的 bounded workflow 难测且容易出现循环。
+- **Architecture implication:** `CriticWarning` 应作为响应和 trace 的附加信息；后续可以根据真实验收数据再决定哪些 warning 升级为 hard gate。
+- **Testing implication:** 测试应验证 warning 被记录和展示，但即使 Critic 发现 warning，session 仍能进入正常 completed / waiting state。
+
+### Decision: Multi-Agent v1 扩展现有 AgentState
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Multi-Agent Study Coach v1 扩展现有 `AgentState`，不创建一套平行的新 session state。
+- **Decision reason:** 现有 API、UI、SQLite memory、evaluation harness 和测试都围绕 `AgentState` / session contract 建立。扩展现有 state 可以保留兼容性，并允许旧 Study Coach 路径逐步迁移到 multi-agent trace。
+- **State additions:** `agent_plan`, `agent_trace`, `critic_warnings`, `current_agent_role`。
+- **State retained:** `session_id`, `learning_goal`, `course_ids`, `plan`, `quiz`, `learner_answer`, `grade`, `next_action`, `status`, `tool_trace`, `tool_call_count`。
+- **Rejected alternative:** 新建一套 `MultiAgentState` / 新 session table / 新 API contract。这个方案边界干净，但会造成重复状态、迁移成本高，也容易让 Streamlit 和 FastAPI 出现两套 Study Coach 行为。
+- **Architecture implication:** 数据库 `sessions.state_json` 可以自然承载扩展字段；如果需要结构化查询，再增量迁移表结构，而不是预先拆库。
+- **Testing implication:** 旧 session API contract 测试应继续通过；新增测试只验证扩展字段存在和 multi-agent trace 行为。
+
+### Decision: 复用现有 Study Coach Session API
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Multi-Agent Study Coach 继续复用现有 `/sessions` API contract，不新建 `/multi-agent/*` namespace。
+- **Decision reason:** 对用户和 Streamlit UI 来说，这仍然是 Study Coach 模式，只是后端从单 workflow 演进为 fixed-role multi-agent workflow。保持 API 稳定可以避免 UI/client/evaluation 分叉。
+- **Retained endpoints:** `POST /sessions`, `POST /sessions/{id}/messages`, `GET /sessions/{id}`, `GET /sessions/{id}/mastery`, `GET /sessions/{id}/trace`。
+- **Possible additive endpoint:** 后续如果 UI 需要更细 timeline，可增加 `GET /sessions/{id}/agent-trace`，但第一版不引入独立 multi-agent namespace。
+- **Rejected alternative:** 新增 `/multi-agent/sessions` 和一套 parallel API。这个方案更显式，但会让旧 Study Coach 和新 Multi-Agent Study Coach 在产品上分裂。
+- **Architecture implication:** `SessionResponse` 可以增量暴露 `agent_plan`, `critic_warnings` 等字段；老客户端仍能读取已有字段。
+- **Testing implication:** 现有 API contract tests 必须继续通过；新增字段测试应保持 backward-compatible。
+
+### Decision: 第一阶段只做 Multi-Agent Execution Skeleton
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Decision:** Multi-Agent Study Coach 第一阶段只实现 execution skeleton：`AgentRole`、`ToolCall` / `ToolSpec` / `ToolRegistry`、role-level allowed tools、固定顺序 orchestrator、`AgentToolTrace`、`CriticWarning`、API response 扩展、UI timeline 和 deterministic tests。
+- **Decision reason:** 这一阶段的目标是先把多 agent 边界、tool calling 契约和可观察性立起来，而不是马上追求模型自主规划。这样能最快获得可测试、可展示、可逐步替换 adapter 的架构基础。
+- **Explicitly out of scope for stage 1:** LLM supervisor autonomous planning、provider-native function calling、parallel execution、retry/regenerate control loop、新 API namespace。
+- **Architecture implication:** 第一阶段不改变用户学习闭环，只改变内部执行结构和 trace 可视化；旧 deterministic fallback 仍是回归测试基线。
+- **Testing implication:** 回归测试应验证 role sequence、allowed tools、tool argument validation、trace persistence、critic warnings 和 API backward compatibility。
+
+### Stage 2 Outlook: LLM-assisted Agent Decisions
+
+- **Target:** 在第一阶段 skeleton 稳定后，引入有限的 LLM-assisted decisions，但仍保持 bounded workflow。
+- **Candidate upgrades:**
+  - Supervisor Agent 可以用 LLM 生成解释性 plan rationale，但仍只能选择预定义 role sequence 的变体。
+  - Retrieval Agent 可以用 LLM 做 query expansion / evidence selection rationale，但检索仍通过 typed tools。
+  - Quiz Agent 和 Grader Agent 使用 live adapters，并把 fallback reason 写入 AgentToolTrace。
+  - Critic Agent 可以从规则校验升级为 LLM-assisted consistency review，但 warning 仍默认 non-blocking。
+  - Provider-native function calling 作为 adapter，把 DeepSeek/OpenAI tool call JSON 转换为内部 `ToolCall`。
+  - 可探索有限并行：Retrieval Agent 的 multi-query retrieval 或 Critic Agent 的 evidence/grade checks 并行执行。
+- **Guardrails:** Stage 2 仍不做 open-ended autonomous agent swarm；仍保留 role allowlist、tool-call limit、typed schema、trace persistence 和 deterministic fallback tests。
+- **Success signal:** live model 能提升 quiz/grading/critic 质量，但离线 deterministic suite 仍可复现通过，UI 能解释每个 role 和 tool call。
+
+### Stage 1 Acceptance Criteria
+
+- **Date:** 2026-07-08
+- **Status:** accepted
+- **Acceptance criteria:**
+  1. 同一个 Study Coach session 能跑完整学习回合。
+  2. trace 中能看到 6 个 agent role 的固定顺序：Supervisor、Retrieval、Quiz、Grader、Coach、Critic。
+  3. 每个 role 的 tool call 都经过 allowed-tools 校验。
+  4. 未授权 tool call 会失败，并作为错误写入 Agent Tool Trace。
+  5. Critic warning 能显示在 API/UI 中，但不阻断 session completed / waiting state。
+  6. 旧 Study Coach API contract tests 继续通过。
+  7. deterministic evaluation 继续离线可跑。
+- **Decision reason:** 这些标准能证明多 agent 架构不是只有命名变化，而是具备角色边界、工具权限、可观察 trace、非阻断 critic 和 backward compatibility。
+- **Implementation implication:** Stage 1 实现计划必须优先覆盖 role model、tool registry、orchestrator、trace persistence、critic warnings、API/UI 扩展和 deterministic tests。
+
+### Issue: PDF 导入速度需要优先于最高图片清晰度
+
+- **Date:** 2026-06-29
+- **Status:** resolved
+- **Where:** `config.yaml`, `src/final_agent/settings.py`
+- **Symptom:** 导入新 PDF 文档仍然偏慢，用户希望继续压缩导入等待时间。
+- **Root cause:** Doubao PDF 解析链路会先用 `pypdfium2` 把每页渲染为 PNG，再 base64 上传给 VLM；`page_dpi=200` 会增加本地渲染时间、图片体积和 API 请求负载。
+- **Options considered:**
+  - Option A: 保持 200 DPI，优先解析清晰度和复杂公式/小字识别。
+  - Option B: 将默认 DPI 降到 150，优先导入速度和请求体积，接受少量清晰度下降。
+- **Decision:** 选择 Option B。默认 `page_dpi` 从 `200` 调低到 `150`，更适合日常课件导入。
+- **Fix:** `config.yaml` 与 `VisionSettings.page_dpi` 默认值同步改为 `150`，避免缺少配置文件时回退到 200。
+- **Tradeoff:** 150 DPI 对普通文字课件通常足够；如果遇到小字号扫描件、复杂公式或低清晰度图片，可临时把 `config.yaml` 改回 200。
+- **Verification:** 配置层改动，不改变 API/schema；后续导入 PDF 时 UI 仍会展示页数、批次数和 Doubao 并发信息。
+- **Resume impact:** can mention PDF import now defaults to 150 DPI for faster rendering and smaller VLM payloads
+
+## Phase 13 — Course-Scoped Knowledge Productization / UI Polish
+
+### Issue: 所有课程共用一个知识库会让检索范围和维护边界变得模糊
+
+- **Date:** 2026-07-07
+- **Status:** resolved
+- **Where:** `src/final_agent/knowledge/vector_store.py`, `src/final_agent/knowledge/metadata.py`, `src/final_agent/knowledge/maintenance.py`, `src/final_agent/ui/app.py`
+- **Symptom:** 用户明确指出“所有的课程都用一个知识库会不会太冗杂”，希望“一门课程只有一个专门对应的知识库”。
+- **Root cause:** Phase 8 的课程分组仍然建立在单一 dense collection + metadata 过滤上；虽然能减少跨课程污染，但物理维护边界仍然不清晰，后续迁移、修复、删除和扩容都容易牵动全局。
+- **Options considered:**
+  - Option A: 继续使用单一 Chroma collection，只依赖 `course_id` where 过滤，改动小但课程隔离不彻底。
+  - Option B: dense 和 sparse 都升级为课程级分区：Chroma 使用课程级 collection，BM25 使用课程级 snapshot，metadata 作为课程目录。
+- **Decision:** 选择 Option B。课程是 final-agent 当前最重要的知识库边界，dense/sparse/metadata/UI 都应该围绕课程组织。
+- **Fix:** 新增课程级 Chroma collection 命名与查询路由；保留旧全局 collection 作为兼容来源；新增 `rebuild_course_knowledge()` 聚合迁移和 sparse 重建；UI 提供当前课程知识库维护入口。
+- **Verification:** `pytest tests/knowledge tests/retrieval tests/api/test_sessions.py tests/ui -q`；`python -m ruff check src/final_agent/knowledge src/final_agent/retrieval src/final_agent/ui tests/knowledge tests/retrieval tests/ui`
+- **Result:** 课程级知识库从“逻辑过滤”推进到“物理分区 + 可维护入口”。
+- **Resume impact:** can mention one course maps to one dedicated dense collection and one sparse snapshot
+
+### Issue: legacy Chroma 迁移时报 numpy array truth value ambiguous
+
+- **Date:** 2026-07-07
+- **Status:** resolved
+- **Where:** `src/final_agent/knowledge/vector_store.py`
+- **Symptom:** UI 执行迁移时报错：`The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()`。
+- **Root cause:** Chroma 返回的 embedding 可能是 numpy array；迁移逻辑用普通 truthiness 判断数组是否存在，触发 numpy 的 ambiguous truth value 错误。
+- **Options considered:**
+  - Option A: 跳过旧 embedding，重新计算 embedding，逻辑简单但成本高且依赖模型运行环境。
+  - Option B: 显式判断 `is None`，并在写入前把 array 转为 list，保留原有 embedding。
+- **Decision:** 选择 Option B。迁移应该尽量是数据搬运，不应强制重新跑 embedding。
+- **Fix:** 迁移路径改用显式空值判断和 `.tolist()` 标准化，避免对 numpy array 做布尔判断。
+- **Verification:** 增加迁移回归测试；运行知识库和检索相关测试。
+- **Result:** 旧全局 collection 可以安全迁移到课程级 collection。
+- **Resume impact:** can mention migration keeps existing embeddings and fixes numpy truthiness bug
+
+### Issue: 课程选择只有默认课程和全部课程，不能创建新课程
+
+- **Date:** 2026-07-07
+- **Status:** resolved
+- **Where:** `src/final_agent/knowledge/metadata.py`, `src/final_agent/ui/app.py`, `tests/knowledge/test_metadata.py`
+- **Symptom:** 课程选择只能来自已有文档 metadata；在上传新课程资料前，用户不能先创建一个命名明确的课程。
+- **Root cause:** `list_courses()` 只从已导入文档反推课程，没有显式课程 registry；空课程在系统里没有存在感。
+- **Options considered:**
+  - Option A: 上传文档时再输入课程名，不支持预先创建课程。
+  - Option B: metadata 支持显式课程 registry，允许创建空课程，且只允许删除没有文档的课程。
+- **Decision:** 选择 Option B。课程是用户组织资料的入口，而不只是文档导入后的派生属性。
+- **Fix:** 新增 `create_course()` 和 `delete_empty_course()`；`list_courses()` 合并显式课程和文档派生课程；UI 增加“新建课程”和“删除当前空课程”。
+- **Verification:** `pytest tests/knowledge/test_metadata.py tests/ui/test_workspace.py -q`
+- **Result:** 用户可以先建课程，再围绕该课程上传和维护资料。
+- **Resume impact:** can mention explicit empty-course lifecycle is supported
+
+### Issue: Apple-like UI 初版顶部暗色模块与整体浅色界面冲突
+
+- **Date:** 2026-07-07
+- **Status:** resolved
+- **Where:** `src/final_agent/ui/theme.py`, `src/final_agent/ui/app.py`
+- **Symptom:** 页面整体走浅色 Apple-like 风格，但顶部突然出现暗色模块，视觉割裂。
+- **Root cause:** 初版 header 试图强化品牌感，但 final-agent 是学习工作台，不是营销页；暗色 hero 把注意力从工作区抢走。
+- **Options considered:**
+  - Option A: 保留暗色 header，调浅或缩小。
+  - Option B: 直接移除顶部暗色模块，让浅色工具界面成为第一屏主视觉。
+- **Decision:** 选择 Option B。工具型学习产品应优先降低视觉噪音，让问答、课程和知识库状态成为主角。
+- **Fix:** 移除突兀暗色 header，保留浅色系统字体、柔和分区和克制蓝色强调。
+- **Verification:** 浏览器刷新后确认顶部不再出现暗色模块。
+- **Result:** UI 风格从“混合 hero + 工具台”收敛为浅色学习工作台。
+- **Resume impact:** can mention no dark hero; Apple-like is applied as quiet productivity UI
+
+### Issue: Evidence 常驻右侧栏挤压中间问答区域
+
+- **Date:** 2026-07-07
+- **Status:** resolved
+- **Where:** `src/final_agent/ui/app.py`, `src/final_agent/ui/workspace.py`
+- **Symptom:** 右侧 Evidence 模块常驻后，主问答区域变窄，影响核心阅读和对话体验。
+- **Root cause:** Evidence 是重要的可解释性辅助信息，但不是每一轮都需要常驻占据布局宽度。
+- **Options considered:**
+  - Option A: 保持三栏布局，缩小 Evidence 宽度。
+  - Option B: Evidence 默认隐藏，用按需 popover 打开。
+- **Decision:** 选择 Option B。主问答区是核心工作面，证据区应可达但不抢空间。
+- **Fix:** Evidence 改为 `st.popover`；新增 `evidence_popover_config()` 作为 UI 文案接口；保留引用、校验和 Coach 支撑信息。
+- **Verification:** `pytest tests/ui/test_workspace.py -q`；浏览器确认主问答区域不再被右侧常驻栏挤压。
+- **Result:** 问答区域更宽，Evidence 仍可按需打开。
+- **Resume impact:** can mention evidence is hidden by default and opened on demand
+
+### Issue: 知识库维护按钮暴露 Chroma / BM25 / dense 等工程词
+
+- **Date:** 2026-07-07
+- **Status:** resolved
+- **Where:** `src/final_agent/ui/workspace.py`, `src/final_agent/ui/app.py`, `tests/ui/test_workspace.py`
+- **Symptom:** 维护区按钮和成功提示直接显示“迁移 Chroma”“dense 迁移”“BM25 chunks”，用户会被底层实现细节打断。
+- **Root cause:** 维护功能先从工程操作出发实现，文案没有翻译成学习产品语言。
+- **Options considered:**
+  - Option A: 保留工程词，方便开发者调试。
+  - Option B: 主操作使用用户语言，如“修复当前课程知识库”；高级操作保留为“仅迁移旧向量数据”，底层统计在摘要中转译为旧片段/检索片段。
+- **Decision:** 选择 Option B。用户关心课程资料是否可检索、是否修复完成，不需要理解 dense/sparse 的实现。
+- **Fix:** 新增 `course_maintenance_copy()`、`format_course_repair_summary()`、`format_course_migration_summary()`；Streamlit 维护区消费这些文案接口。
+- **Verification:** `pytest tests/ui/test_workspace.py -q`；`pytest tests/knowledge tests/retrieval tests/api/test_sessions.py tests/ui -q`；`python -m ruff check src/final_agent/knowledge src/final_agent/retrieval src/final_agent/ui tests/knowledge tests/retrieval tests/ui`
+- **Result:** 维护区对用户呈现为“修复/整理课程知识库”，底层 Chroma/BM25/dense 不再出现在主要文案里。
+- **Resume impact:** can mention maintenance copy is productized and jargon is hidden

@@ -78,15 +78,35 @@ The current project already includes:
 - Course filtering.
 - Five study modes.
 - Streamlit UI.
+- Typed study-coach tool contracts.
+- Bounded LangGraph study workflow.
+- SQLite learner memory and ordered tool traces.
+- FastAPI Agent session API.
+- Streamlit Study Coach mode.
+- Deterministic evaluation harness with saved JSON reports.
 
-Known gaps:
+Remaining gaps before the evidence package is fully review-ready:
 
-- No automated test suite yet.
-- No fixed evaluation dataset yet.
-- No Agent planner/tool loop yet.
-- No persistent learner memory yet.
-- No FastAPI Agent session API yet.
-- No measured final metrics yet.
+- Manual end-to-end Study Coach demo evidence is not yet documented.
+- A clean example session trace has not yet been promoted into README or demo notes.
+- The FastAPI/Starlette third-party deprecation warning is still present in tests.
+- The project title should still remain `RAG-Powered Study Assistant` until the final evidence gate is complete.
+
+## Progress Snapshot
+
+Current measured status on `codex/adaptive-study-coach`:
+
+- `pytest tests/test_schemas.py tests/retrieval tests/ingestion tests/evaluation tests/agent tests/memory tests/api tests/ui -q`: 26 passed.
+- `python -m ruff check src tests`: passed.
+- `pytest --cov=final_agent --cov-report=term-missing`: 26 passed, 41% total coverage.
+- `data/evaluation/baseline.json`: baseline report saved.
+- `data/evaluation/agent-final.json`: 30 cases, 100% task completion, 100% tool-selection accuracy, 66.7% citation grounding, 100% grading agreement, 0% error rate.
+
+What this proves today:
+
+- Phases 0 through 8 have code, tests, and saved evaluation evidence.
+- The final evaluation can run offline and use real local Markdown course chunks when `data/markdown` is present.
+- The measured report is valid portfolio evidence for the bounded workflow, not for live LLM quality or production retrieval quality.
 
 ## Required `interviewer-note.md` Logging Format
 
@@ -158,17 +178,26 @@ SQLite Learner Memory + Tool Trace Store
 
 ## Phase Overview
 
-| Phase | Name | Purpose | Exit Evidence |
-|---|---|---|---|
-| 0 | Orientation | Understand existing code and constraints | AI can explain current data flow and evidence gates |
-| 1 | Baseline Tests | Stabilize current RAG behavior | Deterministic tests pass without external services |
-| 2 | Evaluation Harness | Create measurable baseline | 30-case baseline suite and JSON report |
-| 3 | Tool Contracts | Wrap current capabilities as tools | Typed tool models and adapter tests pass |
-| 4 | Agent Graph | Add bounded LangGraph workflow | Plan, tool call, pause, resume, fail-safe tests pass |
-| 5 | Memory | Persist learner state and traces | SQLite repository and mastery tests pass |
-| 6 | API | Expose Agent sessions | FastAPI contract tests pass |
-| 7 | UI | Add Study Coach mode | Manual workflow succeeds end-to-end |
-| 8 | Final Evaluation | Produce portfolio evidence | Final metrics, README, demo, and limitations |
+| Phase | Name | Status | Purpose | Exit Evidence |
+|---|---|---|---|---|
+| 0 | Orientation | complete | Understand existing code and constraints | Architecture and evidence gates documented |
+| 1 | Baseline Tests | complete | Stabilize current RAG behavior | Deterministic tests pass without external services |
+| 2 | Evaluation Harness | complete | Create measurable baseline | 30-case baseline suite and JSON report |
+| 3 | Tool Contracts | complete | Wrap current capabilities as tools | Typed tool models and adapter tests pass |
+| 4 | Agent Graph | complete | Add bounded LangGraph workflow | Plan, tool call, pause, resume, fail-safe tests pass |
+| 5 | Memory | complete | Persist learner state and traces | SQLite repository and mastery tests pass |
+| 6 | API | complete | Expose Agent sessions | FastAPI contract tests pass |
+| 7 | UI | implemented, demo evidence pending | Add Study Coach mode | Manual workflow succeeds end-to-end |
+| 8 | Final Evaluation | implemented, final evidence package pending | Produce portfolio evidence | Final metrics, README, demo, and limitations |
+
+## Next Recommended Work
+
+Work in this order:
+
+1. Run and document one manual Study Coach end-to-end flow covering `Streamlit -> FastAPI -> agent workflow -> SQLite memory`.
+2. Capture a clean example session trace and mastery update for README or demo notes.
+3. Decide whether to remove or explicitly accept the remaining FastAPI/Starlette deprecation warning before marking the Draft PR ready.
+4. Re-check README, DESIGN, and `interviewer-note.md` after the demo so the final evidence package matches what was actually run.
 
 ## Phase 0: Orientation
 
