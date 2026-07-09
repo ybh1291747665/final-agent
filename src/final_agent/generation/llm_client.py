@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+from time import perf_counter
 
 from openai import OpenAI
 
+from final_agent.runtime_monitoring import get_runtime_monitor
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
@@ -17,6 +19,13 @@ def _get_client(settings: Settings) -> OpenAI:
         api_key=settings.models_llm.api_key,
         base_url=settings.models_llm.base_url,
     )
+
+
+def _usage_value(usage: object, name: str) -> int:
+    if usage is None:
+        return 0
+    value = getattr(usage, name, 0)
+    return int(value or 0)
 
 
 def generate(
@@ -52,6 +61,7 @@ def generate(
         "max_tokens": max_tokens or settings.models_llm.max_tokens,
     }
 
+    started_at = perf_counter()
     if stream:
         response = client.chat.completions.create(**kwargs, stream=True)
         collected: list[str] = []
@@ -61,9 +71,22 @@ def generate(
                 collected.append(delta.content)
                 print(delta.content, end="", flush=True)
         print()
+        get_runtime_monitor().record_model_call(
+            provider=settings.models_llm.provider,
+            model=kwargs["model"],
+            latency_ms=(perf_counter() - started_at) * 1000,
+        )
         return "".join(collected)
     else:
         response = client.chat.completions.create(**kwargs)
+        usage = getattr(response, "usage", None)
+        get_runtime_monitor().record_model_call(
+            provider=settings.models_llm.provider,
+            model=kwargs["model"],
+            latency_ms=(perf_counter() - started_at) * 1000,
+            prompt_tokens=_usage_value(usage, "prompt_tokens"),
+            completion_tokens=_usage_value(usage, "completion_tokens"),
+        )
         return response.choices[0].message.content or ""
 
 
@@ -76,6 +99,7 @@ def generate_stream(
     if settings is None:
         settings = load_settings()
     client = _get_client(settings)
+    started_at = perf_counter()
 
     params = {
         "model": settings.models_llm.model,
@@ -87,7 +111,14 @@ def generate_stream(
     params.update(kwargs)
 
     response = client.chat.completions.create(**params)
-    for chunk in response:
-        delta = chunk.choices[0].delta
-        if delta.content:
-            yield delta.content
+    try:
+        for chunk in response:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                yield delta.content
+    finally:
+        get_runtime_monitor().record_model_call(
+            provider=settings.models_llm.provider,
+            model=params["model"],
+            latency_ms=(perf_counter() - started_at) * 1000,
+        )
