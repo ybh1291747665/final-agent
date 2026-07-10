@@ -39,6 +39,8 @@ class SessionResponse(BaseModel):
     critic_warnings: list[CriticWarning] = Field(default_factory=list)
     evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
     quality_report: AnswerQualityReport | None = None
+    session_summary: str = ""
+    retrieval_decision: str = ""
 
 
 class MasteryResponse(BaseModel):

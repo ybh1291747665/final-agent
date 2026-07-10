@@ -29,6 +29,7 @@ from final_agent.settings import load_settings, Settings
 from final_agent.schemas import ReadingContext
 from final_agent.ui.agent_client import AgentApiClient, AgentApiError
 from final_agent.ui.charts import cjk_font_properties, unpack_pie_result
+from final_agent.ui.conversation_compression import compress_conversations
 from final_agent.ui.knowledge_status import format_knowledge_status
 from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_evidence_snapshots, format_quality_report, format_study_coach_summary, format_trace_lines
 from final_agent.ui.theme import app_header_html, apple_theme_css
@@ -103,6 +104,7 @@ def _save_conversations(state: AppState) -> None:
     """Persist conversations to disk as JSON."""
     import json as _json
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    state.conversations = compress_conversations(state.conversations)
     payload = {
         "conversations": state.conversations,
         "active_conv_id": state.active_conv_id,

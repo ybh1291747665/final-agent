@@ -93,12 +93,19 @@ class ContextBudget(BaseModel):
     max_evidence_items: int = Field(default=3, ge=1, le=10)
     max_summary_chars: int = Field(default=220, ge=80, le=1000)
     max_material_chars: int = Field(default=1200, ge=200, le=6000)
+    max_evidence_tokens: int = Field(default=240, ge=40, le=4000)
+    max_material_tokens: int = Field(default=900, ge=100, le=8000)
+    max_history_tokens: int = Field(default=2000, ge=200, le=32000)
 
 
 class EvidencePacket(BaseModel):
     query: str
+    course_ids: list[str] = Field(default_factory=list)
+    reading_context: ReadingContext | None = None
     retrieved_chunk_ids: list[str] = Field(default_factory=list)
     evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
+    query_fingerprint: str = ""
+    created_turn: int = 0
     budget: ContextBudget = Field(default_factory=ContextBudget)
 
 
@@ -129,5 +136,9 @@ class AgentState(BaseModel):
     agent_trace: list[AgentToolTraceEntry] = Field(default_factory=list)
     critic_warnings: list[CriticWarning] = Field(default_factory=list)
     evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
+    evidence_packet: EvidencePacket | None = None
     quality_report: AnswerQualityReport | None = None
+    session_summary: str = ""
+    turn_index: int = 0
+    retrieval_decision: str = ""
     current_agent_role: str = ""

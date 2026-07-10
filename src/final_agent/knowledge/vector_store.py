@@ -316,6 +316,27 @@ def get_chunks_by_course(
     return chunks
 
 
+def get_chunks_by_ids(
+    chunk_ids: list[str],
+    settings: Settings | None = None,
+    *,
+    course_ids: list[str] | None = None,
+) -> list[Chunk]:
+    if settings is None:
+        settings = load_settings()
+    wanted = set(chunk_ids)
+    if not wanted:
+        return []
+    candidates: list[Chunk] = []
+    if course_ids:
+        for course_id in course_ids:
+            candidates.extend(get_chunks_by_course(course_id, settings=settings))
+    else:
+        candidates = get_all_chunks(settings=settings)
+    by_id = {chunk.chunk_id: chunk for chunk in candidates if chunk.chunk_id in wanted}
+    return [by_id[chunk_id] for chunk_id in chunk_ids if chunk_id in by_id]
+
+
 def _chunks_from_get_result(existing, *, fallback_doc_id: str = "") -> list[Chunk]:
     chunks: list[Chunk] = []
     if not existing or not existing.get("ids"):

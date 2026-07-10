@@ -54,6 +54,8 @@ class AgentService:
             critic_warnings=state.critic_warnings,
             evidence_snapshots=state.evidence_snapshots,
             quality_report=state.quality_report,
+            session_summary=state.session_summary,
+            retrieval_decision=state.retrieval_decision,
         )
 
     def create_session(self, payload: CreateSessionRequest) -> SessionResponse:

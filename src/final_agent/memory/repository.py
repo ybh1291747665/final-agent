@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+import json
 
 from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, MetaData, String, Table, Text, UniqueConstraint, create_engine, select
 from sqlalchemy.engine import Engine
@@ -60,6 +61,20 @@ tool_traces = Table(
     Column("output_summary", Text, nullable=False, default=""),
     Column("fallback_reason", Text, nullable=False, default=""),
     Column("created_at", String, nullable=False),
+)
+
+memory_items = Table(
+    "memory_items", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("scope", String, nullable=False),
+    Column("scope_id", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("content", Text, nullable=False),
+    Column("token_count", Integer, nullable=False, default=0),
+    Column("metadata_json", Text, nullable=False, default="{}"),
+    Column("created_at", String, nullable=False),
+    Column("updated_at", String, nullable=False),
+    UniqueConstraint("scope", "scope_id", "kind"),
 )
 
 
@@ -206,5 +221,91 @@ class MemoryRepository:
                 fallback_reason=row["fallback_reason"] or "",
                 sequence_no=row["sequence_no"],
             )
+            for row in rows
+        ]
+
+    def upsert_memory_item(
+        self,
+        *,
+        scope: str,
+        scope_id: str,
+        kind: str,
+        content: str,
+        token_count: int = 0,
+        metadata: dict | None = None,
+    ) -> dict:
+        now = _now()
+        metadata_json = json.dumps(metadata or {}, ensure_ascii=False)
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                select(memory_items).where(
+                    memory_items.c.scope == scope,
+                    memory_items.c.scope_id == scope_id,
+                    memory_items.c.kind == kind,
+                )
+            ).mappings().first()
+            if row is None:
+                result = conn.execute(
+                    memory_items.insert().values(
+                        scope=scope,
+                        scope_id=scope_id,
+                        kind=kind,
+                        content=content,
+                        token_count=token_count,
+                        metadata_json=metadata_json,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+                item_id = result.inserted_primary_key[0]
+            else:
+                item_id = row["id"]
+                conn.execute(
+                    memory_items.update().where(memory_items.c.id == item_id).values(
+                        content=content,
+                        token_count=token_count,
+                        metadata_json=metadata_json,
+                        updated_at=now,
+                    )
+                )
+        return {
+            "id": item_id,
+            "scope": scope,
+            "scope_id": scope_id,
+            "kind": kind,
+            "content": content,
+            "token_count": token_count,
+            "metadata": metadata or {},
+        }
+
+    def list_memory_items(
+        self,
+        *,
+        scope: str | None = None,
+        scope_id: str | None = None,
+        kind: str | None = None,
+    ) -> list[dict]:
+        stmt = select(memory_items)
+        if scope is not None:
+            stmt = stmt.where(memory_items.c.scope == scope)
+        if scope_id is not None:
+            stmt = stmt.where(memory_items.c.scope_id == scope_id)
+        if kind is not None:
+            stmt = stmt.where(memory_items.c.kind == kind)
+        stmt = stmt.order_by(memory_items.c.updated_at.desc())
+        with self.engine.begin() as conn:
+            rows = conn.execute(stmt).mappings().all()
+        return [
+            {
+                "id": row["id"],
+                "scope": row["scope"],
+                "scope_id": row["scope_id"],
+                "kind": row["kind"],
+                "content": row["content"],
+                "token_count": row["token_count"],
+                "metadata": json.loads(row["metadata_json"] or "{}"),
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
             for row in rows
         ]

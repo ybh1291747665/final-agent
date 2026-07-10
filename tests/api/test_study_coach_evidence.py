@@ -36,6 +36,8 @@ async def test_session_response_exposes_evidence_snapshots(tmp_path):
                 evidence_count=1,
                 needs_revision=False,
             )
+            state.session_summary = "Reviewed CI automation."
+            state.retrieval_decision = "retrieved"
             return state
 
     app = create_app(
@@ -63,3 +65,5 @@ async def test_session_response_exposes_evidence_snapshots(tmp_path):
     assert body["quality_report"]["citation_count"] == 1
     assert body["quality_report"]["evidence_count"] == 1
     assert body["quality_report"]["needs_revision"] is False
+    assert body["session_summary"] == "Reviewed CI automation."
+    assert body["retrieval_decision"] == "retrieved"
