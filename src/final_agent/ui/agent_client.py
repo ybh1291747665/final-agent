@@ -29,11 +29,39 @@ class AgentApiClient:
             raise AgentApiError(str(detail))
         return response.json()
 
-    def create_session(self, learning_goal: str, course_ids: list[str] | None = None) -> dict[str, Any]:
-        return self._request("POST", "/sessions", json={"learning_goal": learning_goal, "course_ids": course_ids or []})
+    def _request_bytes(self, method: str, path: str, **kwargs) -> bytes:
+        try:
+            response = self.client.request(method, path, **kwargs)
+        except httpx.HTTPError as exc:
+            raise AgentApiError(str(exc)) from exc
+        if response.status_code >= 400:
+            raise AgentApiError(response.text)
+        return response.content
 
-    def send_message(self, session_id: str, message: str) -> dict[str, Any]:
-        return self._request("POST", f"/sessions/{session_id}/messages", json={"message": message})
+    def create_session(
+        self,
+        learning_goal: str,
+        course_ids: list[str] | None = None,
+        reading_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "learning_goal": learning_goal,
+            "course_ids": course_ids or [],
+        }
+        if reading_context is not None:
+            payload["reading_context"] = reading_context
+        return self._request("POST", "/sessions", json=payload)
+
+    def send_message(
+        self,
+        session_id: str,
+        message: str,
+        reading_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"message": message}
+        if reading_context is not None:
+            payload["reading_context"] = reading_context
+        return self._request("POST", f"/sessions/{session_id}/messages", json=payload)
 
     def get_session(self, session_id: str) -> dict[str, Any]:
         return self._request("GET", f"/sessions/{session_id}")
@@ -43,3 +71,13 @@ class AgentApiClient:
 
     def get_trace(self, session_id: str) -> dict[str, Any]:
         return self._request("GET", f"/sessions/{session_id}/trace")
+
+    def get_document(self, doc_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/documents/{doc_id}")
+
+    def get_document_page(self, doc_id: str, page_num: int, zoom: int = 100) -> bytes:
+        return self._request_bytes(
+            "GET",
+            f"/documents/{doc_id}/pages/{page_num}",
+            params={"zoom": zoom},
+        )

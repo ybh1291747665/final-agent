@@ -268,3 +268,64 @@ def test_validation_status_summary_is_scannable():
         "2 passed, 1 needs review."
     )
     assert validation_status_summary([]) == "No validation data yet."
+
+
+def test_citation_pdf_target_requires_pdf_doc_and_page():
+    from final_agent.ui.workspace import citation_pdf_target
+
+    assert citation_pdf_target(
+        {
+            "doc_id": "doc-a",
+            "source_path": "E:/courses/lecture.pdf",
+            "page_num": 12,
+        }
+    ) == ("doc-a", 12)
+    assert citation_pdf_target(
+        {"doc_id": "doc-a", "source_path": "E:/courses/lesson.md", "page_num": 12}
+    ) is None
+    assert citation_pdf_target(
+        {"doc_id": "doc-a", "source_path": "E:/courses/lecture.pdf"}
+    ) is None
+
+
+def test_reading_context_payload_reflects_viewer_state():
+    from final_agent.ui.workspace import reading_context_payload
+
+    assert reading_context_payload("doc-a", 4, True) == {
+        "doc_id": "doc-a",
+        "page_num": 4,
+        "page_boost_enabled": True,
+    }
+    assert reading_context_payload("", 1, True) is None
+    assert reading_context_payload("doc-a", 4, True, viewer_open=False) is None
+
+
+def test_workspace_column_weights_follow_pdf_mode():
+    from final_agent.ui.workspace import workspace_column_weights
+
+    assert workspace_column_weights(True) == (0.34, 0.66)
+    assert workspace_column_weights(False) == (1.0,)
+
+
+def test_effective_course_filter_keeps_indexed_course_scope():
+    from final_agent.ui.workspace import effective_course_filter
+
+    assert effective_course_filter(
+        "course-a",
+        {
+            "course-a": {"chunk_count": 3},
+            "course-b": {"chunk_count": 5},
+        },
+    ) == ["course-a"]
+
+
+def test_effective_course_filter_falls_back_when_selected_course_is_empty():
+    from final_agent.ui.workspace import effective_course_filter
+
+    assert effective_course_filter(
+        "empty-course",
+        {
+            "empty-course": {"chunk_count": 0},
+            "course-b": {"chunk_count": 5},
+        },
+    ) is None

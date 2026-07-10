@@ -28,7 +28,7 @@ ROLE_ALLOWED_TOOLS: dict[AgentRole, list[str]] = {
     AgentRole.QUIZ: ["generate_quiz"],
     AgentRole.GRADER: ["grade_answer"],
     AgentRole.COACH: ["get_learning_profile", "update_mastery"],
-    AgentRole.CRITIC: ["verify_evidence", "verify_grade_consistency"],
+    AgentRole.CRITIC: ["verify_evidence", "verify_grade_consistency", "verify_answer_quality"],
 }
 
 

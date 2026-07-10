@@ -31,6 +31,14 @@ class ScoredChunk(BaseModel):
     source: str = ""  # "dense" | "sparse" | "rrf" | "rerank"
 
 
+class ReadingContext(BaseModel):
+    """Optional document position used as a bounded retrieval prior."""
+
+    doc_id: str = ""
+    page_num: Optional[int] = Field(default=None, ge=1)
+    page_boost_enabled: bool = True
+
+
 class GeneratedAnswer(BaseModel):
     """Raw LLM output with extracted citations."""
 

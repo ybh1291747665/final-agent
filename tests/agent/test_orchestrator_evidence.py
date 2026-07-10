@@ -53,7 +53,7 @@ def test_answer_turn_rebuilds_grader_materials_from_snapshots_and_counts_critic_
                 return ToolResult(ok=True, value=GradeResult(score=0.8, feedback="Good."))
             if call.name == "update_mastery":
                 return ToolResult(ok=True, value=None)
-            if call.name in {"verify_evidence", "verify_grade_consistency"}:
+            if call.name in {"verify_evidence", "verify_grade_consistency", "verify_answer_quality"}:
                 return ToolResult(ok=True, value=[])
             raise AssertionError(f"Unexpected tool call: {call.name}")
 
@@ -86,6 +86,7 @@ def test_answer_turn_rebuilds_grader_materials_from_snapshots_and_counts_critic_
 
     grade_call = calls[0][1]
     evidence_call = next(call for role, call in calls if role == AgentRole.CRITIC and call.name == "verify_evidence")
+    quality_call = next(call for role, call in calls if role == AgentRole.CRITIC and call.name == "verify_answer_quality")
     assert state.status == "completed"
     assert grade_call.arguments["materials"] == [
         {
@@ -100,6 +101,9 @@ def test_answer_turn_rebuilds_grader_materials_from_snapshots_and_counts_critic_
         }
     ]
     assert evidence_call.arguments["evidence_count"] == 1
+    assert quality_call.arguments["answer"] == "CI automates checks."
+    assert quality_call.arguments["evidence"] == state.evidence_snapshots
+    assert state.quality_report is not None
 
 
 def test_initial_turn_clears_stale_evidence_when_retrieval_fails():

@@ -100,6 +100,69 @@ def replace_citation_labels(text: str, chunk_registry: dict) -> str:
     return _CITATION_TOKEN_RE.sub(_replace, text)
 
 
+def citation_pdf_target(entry: dict) -> tuple[str, int] | None:
+    doc_id = str(entry.get("doc_id") or "").strip()
+    source_path = str(entry.get("source_path") or "").strip()
+    page_num = entry.get("page_num")
+    if not doc_id or Path(source_path).suffix.lower() != ".pdf":
+        return None
+    try:
+        page = int(page_num)
+    except (TypeError, ValueError):
+        return None
+    return (doc_id, page) if page > 0 else None
+
+
+def reading_context_payload(
+    doc_id: str,
+    page_num: int,
+    page_boost_enabled: bool,
+    viewer_open: bool = True,
+) -> dict[str, object] | None:
+    if not viewer_open:
+        return None
+    if not doc_id:
+        return None
+    return {
+        "doc_id": doc_id,
+        "page_num": max(1, int(page_num)),
+        "page_boost_enabled": page_boost_enabled,
+    }
+
+
+def workspace_column_weights(pdf_viewer_open: bool) -> tuple[float, ...]:
+    if pdf_viewer_open:
+        return (0.34, 0.66)
+    return (1.0,)
+
+
+def reading_context_caption(context: dict[str, object] | None, documents: dict) -> str:
+    if context is None:
+        return "整门课程检索"
+    doc_id = str(context["doc_id"])
+    source_path = str(documents.get(doc_id, {}).get("source_path", ""))
+    file_name = Path(source_path).name or doc_id
+    status = "当前页加权" if context["page_boost_enabled"] else "当前页加权已关闭"
+    return f"整门课程检索 · {status}：{file_name}，第 {context['page_num']} 页"
+
+
+def effective_course_filter(course_id: str, course_index_info: dict[str, dict]) -> list[str] | None:
+    selected = course_id.strip()
+    if not selected:
+        return None
+    selected_info = course_index_info.get(selected, {})
+    selected_chunks = int(selected_info.get("chunk_count", 0) or 0)
+    if selected_chunks > 0:
+        return [selected]
+    has_other_indexed_course = any(
+        course != selected and int(info.get("chunk_count", 0) or 0) > 0
+        for course, info in course_index_info.items()
+    )
+    if has_other_indexed_course:
+        return None
+    return [selected]
+
+
 def build_chunk_registry(results: Sequence[ScoredChunk], documents: dict | None = None) -> dict:
     documents = documents or {}
     registry = {}

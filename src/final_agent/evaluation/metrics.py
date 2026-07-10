@@ -27,6 +27,11 @@ def summarize_results(results: list[EvaluationResult]) -> EvaluationSummary:
         len(set(result.required_citations).intersection(result.actual_citations))
         for result in results
     )
+    matched_retrieval = sum(
+        len(set(result.required_citations).intersection(result.retrieved_citations[:5]))
+        for result in results
+    )
+    actual_evidence = sum(len(result.actual_citations[:3]) for result in results if result.required_citations)
     gradable = [result for result in results if result.expected_score_band is not None]
     grading_matches = sum(
         1 for result in gradable if _score_matches_band(result.actual_score, result.expected_score_band)
@@ -39,6 +44,9 @@ def summarize_results(results: list[EvaluationResult]) -> EvaluationSummary:
         task_completion_rate=completed / total,
         tool_selection_accuracy=exact_tools / total,
         citation_grounding_rate=(matched_citations / required_citations) if required_citations else 0.0,
+        retrieval_recall_at_5=(matched_retrieval / required_citations) if required_citations else 0.0,
+        evidence_recall_at_3=(matched_citations / required_citations) if required_citations else 0.0,
+        citation_precision=(matched_citations / actual_evidence) if actual_evidence else 0.0,
         grading_agreement=(grading_matches / len(gradable)) if gradable else 0.0,
         mean_latency_ms=int(sum(latencies) / total),
         p95_latency_ms=latencies[p95_index],

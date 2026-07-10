@@ -124,3 +124,26 @@ def test_format_evidence_snapshots_handles_empty_state():
     from final_agent.ui.study_coach_view import format_evidence_snapshots
 
     assert format_evidence_snapshots([]) == ["No evidence snapshots yet."]
+
+
+def test_format_quality_report_summarizes_answer_grounding():
+    from final_agent.ui.study_coach_view import format_quality_report
+
+    assert format_quality_report(
+        {
+            "citation_count": 2,
+            "evidence_count": 3,
+            "missing_citation_count": 1,
+            "unsupported_citation_count": 0,
+            "needs_revision": True,
+            "warnings": ["answer_has_uncited_claims"],
+        }
+    ) == [
+        "Status: `needs revision`",
+        "Citations: 2",
+        "Evidence items: 3",
+        "Uncited claims: 1",
+        "Unsupported citations: 0",
+        "Warnings: `answer_has_uncited_claims`",
+    ]
+    assert format_quality_report(None) == ["No answer quality report yet."]

@@ -109,6 +109,34 @@ def test_agent_service_uses_injected_orchestrator(tmp_path):
     assert orchestrator.called is True
 
 
+def test_agent_service_passes_reading_context_to_state(tmp_path):
+    from final_agent.api.app import AgentService
+    from final_agent.api.schemas import CreateSessionRequest
+    from final_agent.memory.repository import MemoryRepository
+    from final_agent.schemas import ReadingContext
+
+    captured = {}
+
+    class FakeOrchestrator:
+        def run_turn(self, state):
+            captured["context"] = state.reading_context
+            state.status = "waiting_for_answer"
+            return state
+
+    service = AgentService(
+        MemoryRepository(tmp_path / "api.sqlite"),
+        orchestrator=FakeOrchestrator(),
+    )
+    service.create_session(
+        CreateSessionRequest(
+            learning_goal="review CI",
+            reading_context=ReadingContext(doc_id="doc-a", page_num=12),
+        )
+    )
+
+    assert captured["context"] == ReadingContext(doc_id="doc-a", page_num=12)
+
+
 def test_agent_service_defaults_to_llm_grader(tmp_path):
     from final_agent.agent.graders import DeterministicGrader, LlmGrader
     from final_agent.api.app import AgentService

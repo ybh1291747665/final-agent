@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.anyio
 async def test_session_response_exposes_evidence_snapshots(tmp_path):
-    from final_agent.agent.models import AgentState, EvidenceSnapshot, QuizQuestion
+    from final_agent.agent.models import AgentState, AnswerQualityReport, EvidenceSnapshot, QuizQuestion
     from final_agent.api.app import create_app
     from final_agent.memory.repository import MemoryRepository
 
@@ -31,6 +31,11 @@ async def test_session_response_exposes_evidence_snapshots(tmp_path):
                     retrieval_source="rrf",
                 )
             ]
+            state.quality_report = AnswerQualityReport(
+                citation_count=1,
+                evidence_count=1,
+                needs_revision=False,
+            )
             return state
 
     app = create_app(
@@ -55,3 +60,6 @@ async def test_session_response_exposes_evidence_snapshots(tmp_path):
             "retrieval_source": "rrf",
         }
     ]
+    assert body["quality_report"]["citation_count"] == 1
+    assert body["quality_report"]["evidence_count"] == 1
+    assert body["quality_report"]["needs_revision"] is False

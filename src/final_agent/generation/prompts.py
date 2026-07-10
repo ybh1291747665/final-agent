@@ -1,12 +1,22 @@
 """Prompt templates for the final-agent generation layer."""
 
+ANSWER_CONTRACT = """Answer contract:
+- Start with a direct answer to the learner's question.
+- Use only the provided course evidence.
+- Cite every factual sentence with the relevant [chunk_id].
+- Do not cite chunk IDs that were not provided.
+- If evidence is insufficient, say which part is uncertain instead of guessing.
+- Prefer concise bullet points for comparisons, causes, steps, and definitions."""
+
 SYSTEM_PROMPT = """You are an exam revision assistant. Follow these rules strictly:
 
 1. Answer ONLY based on the provided reference chunks. Each chunk has a [chunk_id].
 2. For every factual claim, cite the source using [chunk_id] immediately after the sentence.
 3. If the provided chunks do not contain enough information, say "我不确定" (I'm not sure) — NEVER invent facts.
 4. Keep answers concise and well-structured. Use Chinese unless the materials are in English.
-5. When answering, prefer chunks with more specific heading_path values."""
+5. When answering, prefer chunks with more specific heading_path values.
+
+""" + ANSWER_CONTRACT
 
 QA_PROMPT = """Answer the following question using only the reference chunks below.
 
@@ -15,7 +25,7 @@ Question: {question}
 Reference chunks:
 {chunks}
 
-Answer (cite [chunk_id] for every factual statement):"""
+Answer (follow the answer contract and cite [chunk_id] for every factual statement):"""
 
 REVIEW_PROMPT = """Generate a structured review summary for the topic below using only the reference chunks.
 
@@ -51,7 +61,9 @@ Follow these rules strictly:
    — NEVER invent facts.
 5. Structure your answer clearly: (a) direct answer, (b) supporting evidence from each
    relevant document, (c) any caveats or alternative explanations.
-6. Use Chinese unless the materials are in English."""
+6. Use Chinese unless the materials are in English.
+
+""" + ANSWER_CONTRACT
 
 DEEP_QA_PROMPT = """Answer the following question by synthesising ALL the reference chunks below.
 

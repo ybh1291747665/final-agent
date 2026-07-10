@@ -56,6 +56,18 @@ _Avoid_: Full chunk payload in session state, raw retrieval transcript, evidence
 The evidence selection rule where each review turn carries at most three compact evidence snapshots into the learner-facing response and inspection surfaces.
 _Avoid_: Exhaustive retrieval dump, single-source-only evidence
 
+**Evidence Packet**:
+A budgeted evidence bundle produced by retrieval for downstream agents, carrying the query, top retrieved chunk IDs, compact evidence snapshots, and context budget metadata.
+_Avoid_: Full retrieval dump, unbounded chunk handoff, raw prompt payload
+
+**Answer Contract**:
+The response rule that a generated answer must directly answer the learner, use only retrieved course evidence, cite factual claims, and state uncertainty when evidence is insufficient.
+_Avoid_: Free-form chat answer, unsupported explanation, citation-afterthought
+
+**Context Budget**:
+The per-turn limit that controls how many evidence items and how much text each agent may receive, while keeping full chunk text transient and out of persisted session state.
+_Avoid_: Passing full history and full chunks through every agent
+
 **Fixed Sequential Collaboration**:
 A multi-agent collaboration pattern where fixed-role agents run in a predetermined order for the first version of a workflow.
 _Avoid_: Dynamic free-form orchestration, parallel-first agent routing

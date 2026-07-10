@@ -4,10 +4,13 @@
     "total_cases": 30,
     "task_completion_rate": 1.0,
     "tool_selection_accuracy": 1.0,
-    "citation_grounding_rate": 0.6666666666666666,
+    "citation_grounding_rate": 1.0,
+    "retrieval_recall_at_5": 1.0,
+    "evidence_recall_at_3": 1.0,
+    "citation_precision": 0.3333333333333333,
     "grading_agreement": 1.0,
     "mean_latency_ms": 0,
-    "p95_latency_ms": 0,
+    "p95_latency_ms": 1,
     "error_rate": 0.0
   },
   "results": [
@@ -25,13 +28,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-001"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
         "02-devsecops-engg-and-automation-introduction-001",
         "02-devsecops-engg-and-automation-introduction-003",
         "02-devsecops-engg-and-automation-introduction-017",
         "02-devsecops-engg-and-automation-introduction-006",
         "02-devsecops-engg-and-automation-introduction-007"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-001",
+        "02-devsecops-engg-and-automation-introduction-003",
+        "02-devsecops-engg-and-automation-introduction-017"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review # DEVSECOPS ENGINEERING AND AUTOMATION: # DEVSECOPS ENGINEERING AND AUTOMATION"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 1,
@@ -51,12 +65,23 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-002"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
         "02-devsecops-engg-and-automation-introduction-002",
         "02-devsecops-engg-and-automation-introduction-004",
         "02-devsecops-engg-and-automation-introduction-005",
         "02-devsecops-engg-and-automation-introduction-006"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-002",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review INTRODUCTION: total slides dsoea 2019"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -76,10 +101,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-003"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-003",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-001",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-003",
-        "02-devsecops-engg-and-automation-introduction-006"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-001"
       ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Objectives: understand concepts definitions devsecops"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -99,10 +138,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-004"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-007"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005",
         "02-devsecops-engg-and-automation-introduction-006"
       ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Outline - 1: devsecops introduction workflow devops"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -122,13 +175,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-005"
       ],
-      "actual_citations": [
-        "02-devsecops-engg-and-automation-introduction-004",
+      "retrieved_citations": [
         "02-devsecops-engg-and-automation-introduction-005",
         "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-001",
-        "02-devsecops-engg-and-automation-introduction-002"
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-016"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-007"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review DevSecOps - Introduction: approaching security with everyone"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -148,13 +212,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-006"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-011"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-007",
         "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-007"
       ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review DevSecOps – Workflow (1): commit developer creates code"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -174,13 +249,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-007"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-008"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-004",
         "02-devsecops-engg-and-automation-introduction-007",
-        "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-004"
       ],
+      "citation_diagnostics": {
+        "target_rank": 2,
+        "query": "Review DevSecOps – Workflow (1): ners with configuration managed"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -200,13 +286,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-008"
       ],
-      "actual_citations": [
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-007",
+      "retrieved_citations": [
         "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-007"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review DevSecOps – Workflow (2): deploy tests pass version"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -226,13 +323,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-009"
       ],
-      "actual_citations": [
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-007",
+      "retrieved_citations": [
         "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-007",
+        "02-devsecops-engg-and-automation-introduction-011"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-006"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 2,
+        "query": "Review DevSecOps – Workflow (2): code commits repository restarting"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -252,13 +360,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-010"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-010",
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-005",
         "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-007",
-        "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-004"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-010",
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-005"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review DevSecOps – Workflow (2): curity flaws into collaboration"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -278,13 +397,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-011"
       ],
-      "actual_citations": [
-        "02-devsecops-engg-and-automation-introduction-006",
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-011",
         "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-007",
-        "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-010",
+        "02-devsecops-engg-and-automation-introduction-012",
+        "02-devsecops-engg-and-automation-introduction-005"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-011",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-010"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review DevSecOps – Workflow (2): best practices develop culture"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -304,13 +434,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-012"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-012",
+        "02-devsecops-engg-and-automation-introduction-011",
         "02-devsecops-engg-and-automation-introduction-006",
         "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-007",
-        "02-devsecops-engg-and-automation-introduction-008",
-        "02-devsecops-engg-and-automation-introduction-009"
+        "02-devsecops-engg-and-automation-introduction-007"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-012",
+        "02-devsecops-engg-and-automation-introduction-011",
+        "02-devsecops-engg-and-automation-introduction-006"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review DevSecOps – Workflow (2): tant scan external vulnerabilities"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -330,13 +471,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-013"
       ],
-      "actual_citations": [
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-012",
+      "retrieved_citations": [
         "02-devsecops-engg-and-automation-introduction-013",
-        "02-devsecops-engg-and-automation-introduction-014"
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-008",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-008"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Benefits of DevSecOps: early identification fixing code"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -356,13 +508,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-014"
       ],
-      "actual_citations": [
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-012",
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-014",
         "02-devsecops-engg-and-automation-introduction-013",
-        "02-devsecops-engg-and-automation-introduction-014"
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006"
       ],
+      "actual_citations": [
+        "02-devsecops-engg-and-automation-introduction-014",
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-004"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Benefits of DevSecOps: terprise performance development operations"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -382,13 +545,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-015"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-015",
+        "02-devsecops-engg-and-automation-introduction-004",
+        "02-devsecops-engg-and-automation-introduction-016",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-015",
         "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-012",
-        "02-devsecops-engg-and-automation-introduction-013"
+        "02-devsecops-engg-and-automation-introduction-016"
       ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Benefits of DevSecOps > 左侧收益点：: resilience devops helps organisations"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -408,13 +582,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-016"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-016",
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-005",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-017"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-016",
-        "02-devsecops-engg-and-automation-introduction-017",
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-012"
+        "02-devsecops-engg-and-automation-introduction-013",
+        "02-devsecops-engg-and-automation-introduction-005"
       ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Benefits of DevSecOps > 右侧收益点：: flexibility with ever changing"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -434,13 +619,24 @@
       "required_citations": [
         "02-devsecops-engg-and-automation-introduction-017"
       ],
+      "retrieved_citations": [
+        "02-devsecops-engg-and-automation-introduction-016",
+        "02-devsecops-engg-and-automation-introduction-017",
+        "02-devsecops-engg-and-automation-introduction-006",
+        "02-devsecops-engg-and-automation-introduction-009",
+        "02-devsecops-engg-and-automation-introduction-013"
+      ],
       "actual_citations": [
         "02-devsecops-engg-and-automation-introduction-016",
         "02-devsecops-engg-and-automation-introduction-017",
-        "02-devsecops-engg-and-automation-introduction-004",
-        "02-devsecops-engg-and-automation-introduction-006",
-        "02-devsecops-engg-and-automation-introduction-012"
+        "02-devsecops-engg-and-automation-introduction-006"
       ],
+      "citation_diagnostics": {
+        "target_rank": 2,
+        "query": "Review Benefits of DevSecOps > 右侧收益点：: security issues legacy application"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -460,13 +656,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-001"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-001",
         "03-configuration-management-secured-version-control-system-v-1-0-009",
         "03-configuration-management-secured-version-control-system-v-1-0-016",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005"
+        "03-configuration-management-secured-version-control-system-v-1-0-021",
+        "03-configuration-management-secured-version-control-system-v-1-0-022"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-001",
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-016"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review <!-- page_start: 1 -->\n# DEVSECOPS ENGINEERING AND AUTOMATIO: automation"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -486,13 +693,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-002"
       ],
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-002",
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-022",
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-007"
+      ],
       "actual_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-002",
         "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-022"
       ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review CONFIGURATION MANAGEMENT > (SECURED VERSION CONTROL SYSTEM): dsoea 2019 national university"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -512,13 +730,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-003"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
+      "retrieved_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-011",
+        "03-configuration-management-secured-version-control-system-v-1-0-012"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-003",
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-010"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Agenda: version control naming scheme"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": null,
       "actual_score": null,
       "elapsed_ms": 0,
@@ -542,13 +771,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-004"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
+      "retrieved_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-014",
+        "03-configuration-management-secured-version-control-system-v-1-0-015",
+        "03-configuration-management-secured-version-control-system-v-1-0-018"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-014"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version: thought state evolving item"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -572,16 +812,27 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-005"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
+      "retrieved_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-006",
+        "03-configuration-management-secured-version-control-system-v-1-0-009"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
+        "03-configuration-management-secured-version-control-system-v-1-0-004"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version Control: also known revision source"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
-      "elapsed_ms": 0,
+      "elapsed_ms": 1,
       "error": ""
     },
     {
@@ -602,13 +853,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-006"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
+      "retrieved_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-006",
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
+        "03-configuration-management-secured-version-control-system-v-1-0-015",
+        "03-configuration-management-secured-version-control-system-v-1-0-002"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-005",
+        "03-configuration-management-secured-version-control-system-v-1-0-006",
+        "03-configuration-management-secured-version-control-system-v-1-0-007"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 2,
+        "query": "Review Version Control: change made resulting revision"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -632,13 +894,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-007"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
         "03-configuration-management-secured-version-control-system-v-1-0-004",
         "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-006",
+        "03-configuration-management-secured-version-control-system-v-1-0-010"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
+        "03-configuration-management-secured-version-control-system-v-1-0-004",
+        "03-configuration-management-secured-version-control-system-v-1-0-005"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version Control: revision kind practice that"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -662,13 +935,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-008"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
+        "03-configuration-management-secured-version-control-system-v-1-0-008",
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-018",
+        "03-configuration-management-secured-version-control-system-v-1-0-022"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
+        "03-configuration-management-secured-version-control-system-v-1-0-008",
+        "03-configuration-management-secured-version-control-system-v-1-0-009"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 2,
+        "query": "Review Version Control: software developers working simultaneously"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -692,13 +976,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-009"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-016",
+        "03-configuration-management-secured-version-control-system-v-1-0-020",
         "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-003"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-016",
+        "03-configuration-management-secured-version-control-system-v-1-0-020"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version Control: trunks branches merges tags"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -722,13 +1017,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-010"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-007",
         "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-003"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-007"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version Control: dentify display maintain relationships"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -752,13 +1058,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-011"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
-        "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-011",
         "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-014",
+        "03-configuration-management-secured-version-control-system-v-1-0-021"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-010",
+        "03-configuration-management-secured-version-control-system-v-1-0-011",
+        "03-configuration-management-secured-version-control-system-v-1-0-005"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 2,
+        "query": "Review Version Control: three level hierarchy element"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -782,13 +1099,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-012"
       ],
-      "actual_citations": [
-        "03-configuration-management-secured-version-control-system-v-1-0-002",
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-012",
+        "03-configuration-management-secured-version-control-system-v-1-0-011",
         "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-009",
+        "03-configuration-management-secured-version-control-system-v-1-0-010"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-012",
+        "03-configuration-management-secured-version-control-system-v-1-0-011",
+        "03-configuration-management-secured-version-control-system-v-1-0-003"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version Control: duct release naming convention"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,
@@ -812,13 +1140,24 @@
       "required_citations": [
         "03-configuration-management-secured-version-control-system-v-1-0-013"
       ],
-      "actual_citations": [
+      "retrieved_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-013",
+        "03-configuration-management-secured-version-control-system-v-1-0-012",
         "03-configuration-management-secured-version-control-system-v-1-0-002",
         "03-configuration-management-secured-version-control-system-v-1-0-003",
-        "03-configuration-management-secured-version-control-system-v-1-0-004",
-        "03-configuration-management-secured-version-control-system-v-1-0-005",
-        "03-configuration-management-secured-version-control-system-v-1-0-006"
+        "03-configuration-management-secured-version-control-system-v-1-0-005"
       ],
+      "actual_citations": [
+        "03-configuration-management-secured-version-control-system-v-1-0-013",
+        "03-configuration-management-secured-version-control-system-v-1-0-012",
+        "03-configuration-management-secured-version-control-system-v-1-0-002"
+      ],
+      "citation_diagnostics": {
+        "target_rank": 1,
+        "query": "Review Version Control: ions such unix linux"
+      },
+      "semantic_relevance_score": null,
+      "semantic_relevance_reason": "",
       "expected_score_band": "high",
       "actual_score": 1.0,
       "elapsed_ms": 0,

@@ -3,13 +3,26 @@ from __future__ import annotations
 import logging
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 
 from final_agent.agent.graders import DeterministicGrader, LlmGrader
 from final_agent.agent.models import AgentState
 from final_agent.agent.orchestrator import MultiAgentOrchestrator
 from final_agent.agent.quiz_generators import select_quiz_generator
-from final_agent.api.schemas import CreateSessionRequest, MasteryResponse, SendMessageRequest, SessionResponse, TraceResponse
+from final_agent.api.documents import (
+    DocumentNotFoundError,
+    DocumentService,
+    PageOutOfRangeError,
+    UnsupportedDocumentError,
+)
+from final_agent.api.schemas import (
+    CreateSessionRequest,
+    DocumentInfoResponse,
+    MasteryResponse,
+    SendMessageRequest,
+    SessionResponse,
+    TraceResponse,
+)
 from final_agent.memory.repository import MemoryRepository
 from final_agent.settings import load_settings
 
@@ -40,10 +53,16 @@ class AgentService:
             agent_trace=state.agent_trace,
             critic_warnings=state.critic_warnings,
             evidence_snapshots=state.evidence_snapshots,
+            quality_report=state.quality_report,
         )
 
     def create_session(self, payload: CreateSessionRequest) -> SessionResponse:
-        state = AgentState(session_id=uuid4().hex, learning_goal=payload.learning_goal, course_ids=payload.course_ids)
+        state = AgentState(
+            session_id=uuid4().hex,
+            learning_goal=payload.learning_goal,
+            course_ids=payload.course_ids,
+            reading_context=payload.reading_context,
+        )
         state = self.orchestrator.run_turn(state)
         self.repository.create_session(state)
         for trace in state.tool_trace:
@@ -52,7 +71,7 @@ class AgentService:
             self.repository.append_agent_trace(state.session_id, trace)
         return self._response(state)
 
-    def send_message(self, session_id: str, message: str) -> SessionResponse:
+    def send_message(self, session_id: str, message: str, reading_context=None) -> SessionResponse:
         try:
             state = self.repository.get_session(session_id)
         except KeyError as exc:
@@ -60,6 +79,8 @@ class AgentService:
         if state.status != "waiting_for_answer":
             raise HTTPException(status_code=409, detail="Session is not waiting for an answer")
         state.learner_answer = message
+        if reading_context is not None:
+            state.reading_context = reading_context
         before = len(state.tool_trace)
         before_agent_trace = len(state.agent_trace)
         state = self.orchestrator.run_turn(state)
@@ -76,10 +97,17 @@ class AgentService:
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown session") from exc
 
-def create_app(repository: MemoryRepository | None = None, quiz_generator=None, grader=None, orchestrator=None) -> FastAPI:
+def create_app(
+    repository: MemoryRepository | None = None,
+    quiz_generator=None,
+    grader=None,
+    orchestrator=None,
+    document_service: DocumentService | None = None,
+) -> FastAPI:
     app = FastAPI(title="final-agent Study Coach API")
     repo = MemoryRepository() if repository is None else repository
     service = AgentService(repo, quiz_generator=quiz_generator, grader=grader, orchestrator=orchestrator)
+    documents = document_service or DocumentService()
 
     def get_service() -> AgentService:
         return service
@@ -96,9 +124,32 @@ def create_app(repository: MemoryRepository | None = None, quiz_generator=None, 
             "storage": "sqlite",
         }
 
+    @app.get("/documents/{doc_id}", response_model=DocumentInfoResponse)
+    def get_document(doc_id: str):
+        try:
+            return documents.info(doc_id)
+        except DocumentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Document not found") from exc
+        except UnsupportedDocumentError as exc:
+            raise HTTPException(status_code=415, detail="Document is not a readable PDF") from exc
+
+    @app.get("/documents/{doc_id}/pages/{page_num}")
+    def get_document_page(doc_id: str, page_num: int, zoom: int = 100):
+        try:
+            content = documents.page(doc_id, page_num, zoom)
+        except DocumentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Document not found") from exc
+        except UnsupportedDocumentError as exc:
+            raise HTTPException(status_code=415, detail="Document is not a readable PDF") from exc
+        except PageOutOfRangeError as exc:
+            raise HTTPException(status_code=416, detail="Page out of range") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return Response(content=content, media_type="image/png")
+
     @app.post("/sessions/{session_id}/messages", response_model=SessionResponse)
     def send_message(session_id: str, payload: SendMessageRequest, service: AgentService = Depends(get_service)):
-        return service.send_message(session_id, payload.message)
+        return service.send_message(session_id, payload.message, payload.reading_context)
 
     @app.get("/sessions/{session_id}", response_model=SessionResponse)
     def get_session(session_id: str, service: AgentService = Depends(get_service)):

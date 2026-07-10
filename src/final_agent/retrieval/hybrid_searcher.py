@@ -93,8 +93,18 @@ def _sparse_retrieve(
 
     merged: dict[str, tuple[Chunk, float]] = {}
     for course_id in scoped_course_ids:
-        ensure_course_loaded(course_id, settings=settings)
-        for chunk, score in bm25_search(query, top_k=top_k, course_ids=[course_id]):
+        loaded = ensure_course_loaded(course_id, settings=settings)
+        if loaded <= 0:
+            logger.warning("BM25 sparse index unavailable for course=%s; skipping sparse retrieval", course_id)
+            continue
+        try:
+            sparse_hits = bm25_search(query, top_k=top_k, course_ids=[course_id])
+        except RuntimeError as exc:
+            if "BM25 index not loaded" not in str(exc):
+                raise
+            logger.warning("BM25 sparse index not loaded for course=%s; skipping sparse retrieval", course_id)
+            continue
+        for chunk, score in sparse_hits:
             current = merged.get(chunk.chunk_id)
             if current is None or score > current[1]:
                 merged[chunk.chunk_id] = (chunk, score)

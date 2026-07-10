@@ -48,5 +48,10 @@ def test_orchestrator_answer_turn_runs_grader_coach_and_critic():
         AgentRole.COACH,
         AgentRole.CRITIC,
         AgentRole.CRITIC,
+        AgentRole.CRITIC,
     ]
-    assert [warning.code for warning in state.critic_warnings] == ["missing_evidence"]
+    assert [warning.code for warning in state.critic_warnings] == [
+        "missing_evidence",
+        "answer_has_uncited_claims",
+    ]
+    assert state.quality_report is not None

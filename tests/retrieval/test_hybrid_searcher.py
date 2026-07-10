@@ -26,11 +26,11 @@ def test_hybrid_search_loads_sparse_scope_before_search(monkeypatch):
     shared = Chunk(chunk_id="shared", doc_id="doc-a", course_id="course-a", text="shared")
 
     monkeypatch.setattr(hybrid_searcher, "_dense_retrieve", lambda *args, **kwargs: [(shared, 0.8)])
-    monkeypatch.setattr(
-        hybrid_searcher,
-        "ensure_course_loaded",
-        lambda course_id, **kwargs: calls.setdefault("course_id", course_id) or 1,
-    )
+    def fake_ensure_course_loaded(course_id, **kwargs):
+        calls["course_id"] = course_id
+        return 1
+
+    monkeypatch.setattr(hybrid_searcher, "ensure_course_loaded", fake_ensure_course_loaded)
     monkeypatch.setattr(hybrid_searcher, "bm25_search", lambda *args, **kwargs: [(shared, 2.0)])
 
     hybrid_searcher.hybrid_search("query", top_k=3, course_ids=["course-a"])
@@ -108,3 +108,18 @@ def test_sparse_retrieve_uses_all_registered_courses_when_scope_missing(monkeypa
 
     assert calls == ["course-a", "course-b"]
     assert [chunk.chunk_id for chunk, _ in results] == ["course-a-chunk", "course-b-chunk"]
+
+
+def test_sparse_retrieve_skips_unloaded_course_without_failing(monkeypatch):
+    from final_agent.retrieval import hybrid_searcher
+
+    monkeypatch.setattr(hybrid_searcher, "ensure_course_loaded", lambda course_id, **kwargs: 0)
+    monkeypatch.setattr(
+        hybrid_searcher,
+        "bm25_search",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("BM25 index not loaded. Call load_index() first.")
+        ),
+    )
+
+    assert hybrid_searcher._sparse_retrieve("query", top_k=5, course_ids=["course-a"]) == []
