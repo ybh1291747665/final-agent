@@ -11,6 +11,7 @@ except ModuleNotFoundError:
     CrossEncoder = None  # type: ignore[assignment]
 
 from final_agent.schemas import ScoredChunk
+from final_agent.retrieval_context import chunk_index_text
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ def rerank(
         settings = load_settings()
     model = _get_model(settings)
 
-    pairs = [(query, c.chunk.text) for c in candidates]
+    pairs = [(query, chunk_index_text(c.chunk)) for c in candidates]
     scores = model.predict(pairs, show_progress_bar=False)
 
     scored = [

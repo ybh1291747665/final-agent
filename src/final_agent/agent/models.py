@@ -5,6 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from final_agent.agent.roles import AgentRole
+from final_agent.schemas import ReadingContext
 
 
 AgentStatus = Literal["planning", "running", "waiting_for_answer", "completed", "failed"]
@@ -88,10 +89,33 @@ class EvidenceSnapshot(BaseModel):
     retrieval_source: str = ""
 
 
+class ContextBudget(BaseModel):
+    max_evidence_items: int = Field(default=3, ge=1, le=10)
+    max_summary_chars: int = Field(default=220, ge=80, le=1000)
+    max_material_chars: int = Field(default=1200, ge=200, le=6000)
+
+
+class EvidencePacket(BaseModel):
+    query: str
+    retrieved_chunk_ids: list[str] = Field(default_factory=list)
+    evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
+    budget: ContextBudget = Field(default_factory=ContextBudget)
+
+
+class AnswerQualityReport(BaseModel):
+    citation_count: int = 0
+    missing_citation_count: int = 0
+    unsupported_citation_count: int = 0
+    evidence_count: int = 0
+    needs_revision: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
 class AgentState(BaseModel):
     session_id: str
     learning_goal: str
     course_ids: list[str] = Field(default_factory=list)
+    reading_context: ReadingContext | None = None
     plan: list[StudyPlanStep] = Field(default_factory=list)
     current_step: int = 0
     quiz: QuizQuestion | None = None
@@ -105,4 +129,5 @@ class AgentState(BaseModel):
     agent_trace: list[AgentToolTraceEntry] = Field(default_factory=list)
     critic_warnings: list[CriticWarning] = Field(default_factory=list)
     evidence_snapshots: list[EvidenceSnapshot] = Field(default_factory=list)
+    quality_report: AnswerQualityReport | None = None
     current_agent_role: str = ""

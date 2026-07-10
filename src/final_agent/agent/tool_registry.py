@@ -71,7 +71,12 @@ def build_default_tool_registry(repository=None, quiz_generator=None, grader=Non
             name="search_course_material",
             input_model=tools.SearchCourseMaterialInput,
             operation=lambda payload: unwrap(
-                tools.search_course_material(payload.query, payload.course_ids, payload.top_k)
+                tools.search_course_material(
+                    payload.query,
+                    payload.course_ids,
+                    payload.top_k,
+                    payload.reading_context,
+                )
             ),
         )
     )
@@ -140,6 +145,13 @@ def build_default_tool_registry(repository=None, quiz_generator=None, grader=Non
             name="verify_grade_consistency",
             input_model=tools.VerifyGradeConsistencyInput,
             operation=lambda payload: unwrap(tools.verify_grade_consistency(payload.score, payload.next_action)),
+        )
+    )
+    registry.register(
+        ToolSpec(
+            name="verify_answer_quality",
+            input_model=tools.VerifyAnswerQualityInput,
+            operation=lambda payload: unwrap(tools.verify_answer_quality(payload.answer, payload.evidence)),
         )
     )
     return registry

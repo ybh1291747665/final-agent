@@ -78,6 +78,16 @@ def load_local_rag_cases(data_dir: str | Path = "data", target_count: int = 30) 
     cases: list[EvaluationCase] = []
     for index, chunk in enumerate(selected, start=1):
         heading = " > ".join(chunk.heading_path) if chunk.heading_path else chunk.text[:60]
+        heading_words = {word.lower() for word in re.findall(r"[A-Za-z0-9]{4,}", heading)}
+        distinctive: list[str] = []
+        for word in re.findall(r"[A-Za-z0-9]{4,}", chunk.text):
+            normalized = word.lower()
+            if normalized in heading_words or normalized in distinctive:
+                continue
+            distinctive.append(normalized)
+            if len(distinctive) == 4:
+                break
+        detail = " ".join(distinctive) or " ".join(chunk.text.split())[:60]
         if index <= target_count // 3:
             category = "retrieval"
             expected_tools = ["search_course_material", "generate_quiz"]
@@ -97,7 +107,7 @@ def load_local_rag_cases(data_dir: str | Path = "data", target_count: int = 30) 
             case_id=f"{prefix}-{index:02d}",
             category=category,
             course_ids=[chunk.course_id],
-            user_input=f"Review {heading}",
+            user_input=f"Review {heading}: {detail}",
             expected_tools=expected_tools,
             required_citations=[chunk.chunk_id],
             expected_outcome=f"Use material from {chunk.doc_id}.",

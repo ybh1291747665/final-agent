@@ -32,6 +32,7 @@ except ModuleNotFoundError:
             return np.array([sum(1 for token in doc if token in token_set) for doc in self.corpus], dtype=float)
 
 from final_agent.schemas import Chunk
+from final_agent.retrieval_context import chunk_index_text
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
@@ -200,7 +201,7 @@ def build_index(
             path.unlink()
         return 0
 
-    tokenized = [_tokenize(chunk.text) for chunk in chunks]
+    tokenized = [_tokenize(chunk_index_text(chunk)) for chunk in chunks]
     bm25 = BM25Okapi(tokenized)
     _INDEX_CACHE = bm25
     _CHUNK_MAP_CACHE = list(chunks)
@@ -251,7 +252,7 @@ def build_index_for_course(
             _ACTIVE_SNAPSHOT_PATH = None
         return 0
 
-    tokenized = [_tokenize(chunk.text) for chunk in scoped]
+    tokenized = [_tokenize(chunk_index_text(chunk)) for chunk in scoped]
     _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = scoped
     _ACTIVE_COURSE_ID = normalized_course
@@ -287,7 +288,7 @@ def load_index(
     if not resolved:
         return build_index(chunks, settings)
 
-    tokenized = [_tokenize(chunk.text) for chunk in resolved]
+    tokenized = [_tokenize(chunk_index_text(chunk)) for chunk in resolved]
     _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = resolved
     _ACTIVE_COURSE_ID = None
@@ -336,7 +337,7 @@ def ensure_course_loaded(
     if not resolved:
         return build_index_for_course(course_id, scoped_chunks, settings=settings, snapshot_path=path)
 
-    tokenized = [_tokenize(chunk.text) for chunk in resolved]
+    tokenized = [_tokenize(chunk_index_text(chunk)) for chunk in resolved]
     _INDEX_CACHE = BM25Okapi(tokenized)
     _CHUNK_MAP_CACHE = resolved
     _ACTIVE_COURSE_ID = normalized_course
@@ -364,7 +365,7 @@ def search(
         if idx >= len(_CHUNK_MAP_CACHE):
             continue
         chunk = _CHUNK_MAP_CACHE[idx]
-        overlap = len(token_set.intersection(_tokenize(chunk.text)))
+        overlap = len(token_set.intersection(_tokenize(chunk_index_text(chunk))))
         if scores[idx] <= 0:
             if not use_overlap_fallback or overlap <= 0:
                 continue

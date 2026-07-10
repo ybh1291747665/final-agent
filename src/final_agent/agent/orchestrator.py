@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from final_agent.agent.evidence import build_evidence_snapshots, build_transient_materials, summarize_evidence_for_trace
+from final_agent.agent.critics import evaluate_answer_quality
+from final_agent.agent.evidence import build_budgeted_transient_materials, build_evidence_packet, summarize_evidence_for_trace
 from final_agent.agent.mastery import choose_learning_action
 from final_agent.agent.models import AgentState, AgentToolTraceEntry, CriticWarning, QuizQuestion, StudyPlanStep, ToolCall, ToolResult
 from final_agent.agent.roles import AgentRole, ROLE_SEQUENCE, allowed_tools_for_role
@@ -114,14 +115,20 @@ class MultiAgentOrchestrator:
                 AgentRole.RETRIEVAL,
                 ToolCall(
                     name="search_course_material",
-                    arguments={"query": state.learning_goal, "course_ids": state.course_ids, "top_k": 5},
+                    arguments={
+                        "query": state.learning_goal,
+                        "course_ids": state.course_ids,
+                        "top_k": 5,
+                        "reading_context": state.reading_context,
+                    },
                 ),
             )
             materials: list[dict] = []
             state.evidence_snapshots = []
             if retrieval.ok:
-                state.evidence_snapshots = build_evidence_snapshots(retrieval.value, limit=3)
-                materials = build_transient_materials(retrieval.value, limit=3)
+                packet = build_evidence_packet(state.learning_goal, retrieval.value)
+                state.evidence_snapshots = packet.evidence_snapshots
+                materials = build_budgeted_transient_materials(retrieval.value, budget=packet.budget)
                 if len(state.agent_trace) >= 2:
                     state.agent_trace[-1].output_summary = summarize_evidence_for_trace(state.evidence_snapshots)
             quiz = self._execute(
@@ -201,11 +208,22 @@ class MultiAgentOrchestrator:
                     arguments={"score": state.grade.score, "next_action": state.next_action},
                 ),
             )
+            answer_quality = self._execute(
+                state,
+                AgentRole.CRITIC,
+                ToolCall(
+                    name="verify_answer_quality",
+                    arguments={"answer": state.learner_answer, "evidence": state.evidence_snapshots},
+                ),
+            )
             warnings: list[CriticWarning] = []
             if evidence.ok:
                 warnings.extend(evidence.value)
             if consistency.ok:
                 warnings.extend(consistency.value)
+            if answer_quality.ok:
+                warnings.extend(answer_quality.value)
+                state.quality_report = evaluate_answer_quality(state.learner_answer, state.evidence_snapshots)
             state.critic_warnings = warnings
             state.status = "completed"
             return state

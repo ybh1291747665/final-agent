@@ -26,17 +26,21 @@ from final_agent.generation import answer_question, verify_answer
 from final_agent.generation.answer_generator import answer_deep
 from final_agent.generation.summarizer import summarize_document
 from final_agent.settings import load_settings, Settings
+from final_agent.schemas import ReadingContext
 from final_agent.ui.agent_client import AgentApiClient, AgentApiError
 from final_agent.ui.charts import cjk_font_properties, unpack_pie_result
 from final_agent.ui.knowledge_status import format_knowledge_status
-from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_evidence_snapshots, format_study_coach_summary, format_trace_lines
+from final_agent.ui.study_coach_view import format_agent_timeline, format_critic_warnings, format_evidence_snapshots, format_quality_report, format_study_coach_summary, format_trace_lines
 from final_agent.ui.theme import app_header_html, apple_theme_css
+from final_agent.ui.pdf_viewer import pdf_documents, render_pdf_viewer
 from final_agent.ui.workspace import (
     build_chunk_registry,
     course_maintenance_copy,
     course_management_guidance,
+    citation_pdf_target,
     evidence_status_summary,
     evidence_popover_config,
+    effective_course_filter,
     format_citation_label,
     format_course_maintenance_failure,
     format_course_migration_summary,
@@ -47,8 +51,11 @@ from final_agent.ui.workspace import (
     mode_display_names,
     mode_group_options,
     replace_citation_labels,
+    reading_context_caption,
+    reading_context_payload,
     validation_status_summary,
     validation_summary,
+    workspace_column_weights,
 )
 
 logger = logging.getLogger(__name__)
@@ -155,6 +162,11 @@ class AppState(BaseModel):
     query_mode: str = "qa"      # qa | deep | page_by_page | full_summary | key_points | study_coach
     model_prefs: dict[str, str] = Field(default_factory=_default_model_prefs)
     agent_session_id: str = ""
+    active_pdf_doc: str = ""
+    active_pdf_page: int = 1
+    pdf_zoom: int = 100
+    pdf_viewer_open: bool = False
+    page_boost_enabled: bool = True
 
     def _current_history(self) -> list[dict]:
         """Return chat history of the active conversation."""
@@ -204,11 +216,32 @@ def init_state() -> Settings:
 
 # ================================= UI =================================
 
-st.set_page_config(page_title="final-agent", layout="wide")
+st.set_page_config(page_title="final-agent", layout="wide", initial_sidebar_state="expanded")
 st.markdown(apple_theme_css(), unsafe_allow_html=True)
 
 settings = init_state()
 app_state: AppState = st.session_state.app_state
+question = st.session_state.pop("pending_question", "")
+
+if app_state.pdf_viewer_open:
+    st.markdown(
+        """
+<style>
+section[data-testid="stSidebar"] {
+  display: none !important;
+}
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] > section {
+  margin-left: 0 !important;
+}
+div[data-testid="stBottom"] {
+  left: 0 !important;
+  width: 100vw !important;
+}
+</style>
+""".strip(),
+        unsafe_allow_html=True,
+    )
 
 st.markdown(
     app_header_html(
@@ -641,37 +674,77 @@ def _show_citations(ans, chunk_registry):
                 ci = chunk_registry[cid]
                 label = format_citation_label(cid, ci)
                 st.caption(f"**[{label}]** {ci['heading']} (score={ci['score']:.3f}, {ci['source']})")
+                _show_pdf_link(ci, f"answer-citation-{cid}")
                 st.text(ci["text"][:400])
             else:
                 st.caption(f"**[{format_citation_label(cid, {})}]** (未命中)")
 
 
-def _show_study_coach_evidence(snapshots):
+def _show_study_coach_evidence(snapshots, key_prefix="coach-evidence"):
     with st.expander("Study Coach evidence", expanded=False):
-        for line in format_evidence_snapshots(snapshots or []):
+        for index, (snapshot, line) in enumerate(
+            zip(snapshots or [], format_evidence_snapshots(snapshots or []))
+        ):
             st.markdown(f"- {line}")
+            _show_pdf_link(snapshot, f"{key_prefix}-{index}")
 
 
 def _course_filter() -> list[str] | None:
-    if app_state.course_id:
-        return [app_state.course_id]
-    return None
+    return effective_course_filter(
+        app_state.course_id,
+        list_course_index_info(settings=st.session_state.settings),
+    )
+
+
+def _reading_context_dict() -> dict | None:
+    return reading_context_payload(
+        app_state.active_pdf_doc,
+        app_state.active_pdf_page,
+        app_state.page_boost_enabled,
+        viewer_open=app_state.pdf_viewer_open,
+    )
+
+
+def _reading_context_model() -> ReadingContext | None:
+    payload = _reading_context_dict()
+    return ReadingContext.model_validate(payload) if payload else None
+
+
+def _show_pdf_link(entry: dict, key: str) -> None:
+    target = citation_pdf_target(entry)
+    if target is None:
+        return
+    if st.button("在 PDF 中查看", key=key, use_container_width=False):
+        app_state.active_pdf_doc, app_state.active_pdf_page = target
+        app_state.pdf_viewer_open = True
+        st.rerun()
 
 
 def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
     client = AgentApiClient()
     try:
         if not app_state.agent_session_id:
-            response = client.create_session(prompt, cids or [])
+            response = client.create_session(
+                prompt,
+                cids or [],
+                reading_context=_reading_context_dict(),
+            )
             app_state.agent_session_id = response["session_id"]
         else:
-            response = client.send_message(app_state.agent_session_id, prompt)
+            response = client.send_message(
+                app_state.agent_session_id,
+                prompt,
+                reading_context=_reading_context_dict(),
+            )
 
         mastery_response = client.get_mastery(app_state.agent_session_id)
         trace_response = client.get_trace(app_state.agent_session_id)
         content = format_study_coach_summary(response, mastery_response.get("mastery", {}))
         st.markdown(content)
-        _show_study_coach_evidence(response.get("evidence_snapshots", []))
+        _show_study_coach_evidence(response.get("evidence_snapshots", []), "live-coach")
+        with st.expander("Answer quality", expanded=False):
+            for line in format_quality_report(response.get("quality_report")):
+                st.markdown(f"- {line}")
         with st.expander("Study Coach tool trace", expanded=False):
             for line in format_trace_lines(trace_response.get("trace", [])):
                 st.markdown(f"- {line}")
@@ -687,7 +760,7 @@ def _run_study_coach_turn(prompt: str, cids: list[str] | None) -> None:
 
 
 def _render_history() -> None:
-    for msg in app_state._current_history():
+    for message_index, msg in enumerate(app_state._current_history()):
         role = msg["role"]
         with st.chat_message(role):
             st.markdown(msg["content"])
@@ -706,13 +779,17 @@ def _render_history() -> None:
                                 f"**[{label}]** {ci['heading']} "
                                 f"(score={ci['score']:.3f}, {ci['source']})"
                             )
+                            _show_pdf_link(ci, f"history-{message_index}-{cid}")
                             st.text(ci["text"][:400])
                         else:
                             st.caption(f"**[{format_citation_label(cid, {})}]** (未在检索结果中)")
 
 
             if role == "assistant" and msg.get("evidence_snapshots"):
-                _show_study_coach_evidence(msg.get("evidence_snapshots", []))
+                _show_study_coach_evidence(
+                    msg.get("evidence_snapshots", []),
+                    f"history-coach-{message_index}",
+                )
 
 
 def _render_evidence_tab(evidence: dict) -> None:
@@ -777,7 +854,60 @@ def _render_coach_tab() -> None:
 
 # ====================== MAIN: Workspace ======================
 
-title_col, evidence_col = st.columns([0.78, 0.22], gap="large")
+viewer_documents = list_documents(settings=st.session_state.settings)
+available_pdf_documents = pdf_documents(viewer_documents)
+if not app_state.active_pdf_doc and available_pdf_documents:
+    app_state.active_pdf_doc = list(available_pdf_documents)[-1]
+reading_toggle_col, context_col = st.columns([0.22, 0.78], gap="medium")
+with reading_toggle_col:
+    pdf_toggle_label = "收起 PDF" if app_state.pdf_viewer_open else "打开 PDF"
+    if st.button(
+        pdf_toggle_label,
+        key="pdf_viewer_open_button",
+        disabled=not available_pdf_documents,
+        use_container_width=True,
+    ):
+        app_state.pdf_viewer_open = not app_state.pdf_viewer_open
+        st.rerun()
+if app_state.pdf_viewer_open:
+    st.markdown(
+        """
+<style>
+section[data-testid="stSidebar"] {
+  display: none !important;
+}
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] > section {
+  margin-left: 0 !important;
+}
+div[data-testid="stBottom"] {
+  left: 0 !important;
+  width: 100vw !important;
+}
+</style>
+""".strip(),
+        unsafe_allow_html=True,
+    )
+with context_col:
+    st.caption(reading_context_caption(_reading_context_dict(), viewer_documents))
+
+if app_state.pdf_viewer_open:
+    app_state.page_boost_enabled = st.toggle(
+        "当前页加权",
+        value=app_state.page_boost_enabled,
+        key="page_boost_enabled",
+    )
+
+workspace_weights = workspace_column_weights(app_state.pdf_viewer_open)
+if len(workspace_weights) == 2:
+    question_workspace, pdf_workspace = st.columns(list(workspace_weights), gap="large")
+else:
+    question_workspace = st.container()
+    pdf_workspace = None
+
+question_workspace.__enter__()
+
+title_col, evidence_col = st.columns([0.60, 0.40], gap="medium")
 with title_col:
     st.subheader("Ask / Summarize")
     st.caption(
@@ -801,10 +931,7 @@ with evidence_col:
 
 _render_history()
 
-# --- Input ---
-question = st.chat_input(
-    input_placeholder(app_state.query_mode)
-)
+# --- Pending input submitted by the page-level chat box ---
 if question:
     cur = st.session_state.settings
     if not cur.models_llm.api_key or cur.models_llm.api_key.startswith("sk-your-"):
@@ -827,7 +954,13 @@ if question:
             if mode == "qa":
                 with st.spinner("检索中..."):
                     try:
-                        results = retrieval_search(question, settings=cur, top_k=10, course_ids=cids)
+                        results = retrieval_search(
+                            question,
+                            settings=cur,
+                            top_k=10,
+                            course_ids=cids,
+                            reading_context=_reading_context_model(),
+                        )
                     except Exception as e:
                         st.error(f"检索失败: {e}")
                         results = []
@@ -860,7 +993,12 @@ if question:
             elif mode == "deep":
                 with st.spinner("深度检索中（高召回+上下文扩展）..."):
                     try:
-                        results = deep_search(question, settings=cur, course_ids=cids)
+                        results = deep_search(
+                            question,
+                            settings=cur,
+                            course_ids=cids,
+                            reading_context=_reading_context_model(),
+                        )
                     except Exception as e:
                         st.error(f"检索失败: {e}")
                         results = []
@@ -921,3 +1059,16 @@ if question:
 
 # Autosave conversations after every interaction
 _save_conversations(app_state)
+question_workspace.__exit__(None, None, None)
+
+if pdf_workspace is not None:
+    with pdf_workspace:
+        render_pdf_viewer(
+            app_state,
+            list_documents(settings=st.session_state.settings),
+        )
+
+submitted_question = st.chat_input(input_placeholder(app_state.query_mode))
+if submitted_question:
+    st.session_state.pending_question = submitted_question
+    st.rerun()

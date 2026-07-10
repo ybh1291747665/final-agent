@@ -60,6 +60,7 @@ def test_build_rebuilds_only_ingested_course_and_registers_snapshot_path(tmp_pat
         "content_signature": summary["content_signature"],
         "skipped": False,
         "skip_reason": "",
+        "index_schema_version": builder.INDEX_SCHEMA_VERSION,
     }
     assert recorded["added_chunk_ids"] == ["a-new-1", "a-new-2"]
     assert recorded["rebuilt_course_id"] == "course-a"
@@ -71,6 +72,7 @@ def test_build_rebuilds_only_ingested_course_and_registers_snapshot_path(tmp_pat
         "course_id": "course-a",
         "bm25_snapshot_path": str(course_index_path("course-a", settings)),
         "content_signature": summary["content_signature"],
+        "index_schema_version": builder.INDEX_SCHEMA_VERSION,
     }
 
 
@@ -94,6 +96,7 @@ def test_build_skips_unchanged_document_when_signature_matches(tmp_path, monkeyp
         settings=settings,
         course_id="course-a",
         content_signature=signature,
+        index_schema_version=builder.INDEX_SCHEMA_VERSION,
     )
     calls: dict[str, int] = {"embed": 0, "add": 0, "rebuild": 0}
 
@@ -123,8 +126,46 @@ def test_build_skips_unchanged_document_when_signature_matches(tmp_path, monkeyp
         "content_signature": signature,
         "skipped": True,
         "skip_reason": "unchanged-document",
+        "index_schema_version": builder.INDEX_SCHEMA_VERSION,
     }
     assert calls == {"embed": 0, "add": 0, "rebuild": 0}
+
+
+def test_build_rebuilds_when_index_schema_version_changes(tmp_path, monkeypatch):
+    from final_agent.knowledge import builder
+    from final_agent.schemas import Chunk
+    from final_agent.settings import Settings
+
+    settings = Settings()
+    settings.vector_store.persist_dir = str(tmp_path)
+    chunks = [Chunk(chunk_id="c1", doc_id="doc-a", course_id="course-a", text="Body")]
+    signature = builder.chunk_content_signature(chunks)
+    monkeypatch.setattr(
+        builder,
+        "list_documents",
+        lambda settings=None: {
+            "doc-a": {
+                "content_signature": signature,
+                "index_schema_version": builder.INDEX_SCHEMA_VERSION - 1,
+            }
+        },
+    )
+    calls = {"embedded": 0}
+    monkeypatch.setattr(
+        builder,
+        "embed_chunks",
+        lambda chunks, settings=None: calls.__setitem__("embedded", 1) or [],
+    )
+    monkeypatch.setattr(builder, "add_chunks", lambda pairs, settings=None: None)
+    monkeypatch.setattr(builder, "get_chunks_by_course", lambda course_id, settings=None: chunks)
+    monkeypatch.setattr(builder, "build_index_for_course", lambda *args, **kwargs: 1)
+    monkeypatch.setattr(builder, "register_document", lambda *args, **kwargs: None)
+
+    summary = builder.build(chunks, settings=settings)
+
+    assert calls["embedded"] == 1
+    assert summary["skipped"] is False
+    assert summary["index_schema_version"] == builder.INDEX_SCHEMA_VERSION
 
 
 def test_build_empty_summary_matches_non_empty_shape():

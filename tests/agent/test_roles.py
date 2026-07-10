@@ -22,7 +22,11 @@ def test_agent_roles_define_allowed_tools():
     assert allowed_tools_for_role(AgentRole.QUIZ) == ["generate_quiz"]
     assert allowed_tools_for_role(AgentRole.GRADER) == ["grade_answer"]
     assert allowed_tools_for_role(AgentRole.COACH) == ["get_learning_profile", "update_mastery"]
-    assert allowed_tools_for_role(AgentRole.CRITIC) == ["verify_evidence", "verify_grade_consistency"]
+    assert allowed_tools_for_role(AgentRole.CRITIC) == [
+        "verify_evidence",
+        "verify_grade_consistency",
+        "verify_answer_quality",
+    ]
 
 
 def test_agent_state_carries_multi_agent_fields():
@@ -33,4 +37,5 @@ def test_agent_state_carries_multi_agent_fields():
     assert state.agent_plan == []
     assert state.agent_trace == []
     assert state.critic_warnings == []
+    assert state.quality_report is None
     assert state.current_agent_role == ""

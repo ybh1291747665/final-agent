@@ -8,16 +8,20 @@ from pydantic import BaseModel, Field
 
 from final_agent.agent.critics import verify_evidence as critic_verify_evidence
 from final_agent.agent.critics import verify_grade_consistency as critic_verify_grade_consistency
+from final_agent.agent.critics import verify_answer_quality as critic_verify_answer_quality
+from final_agent.agent.models import EvidenceSnapshot
 from final_agent.agent.graders import DeterministicGrader
 from final_agent.agent.models import ToolResult
 from final_agent.agent.quiz_generators import DeterministicQuizGenerator
 from final_agent.retrieval import pipeline as retrieval_pipeline
+from final_agent.schemas import ReadingContext
 
 
 class SearchCourseMaterialInput(BaseModel):
     query: str
     course_ids: list[str] = Field(default_factory=list)
     top_k: int = 5
+    reading_context: ReadingContext | None = None
 
 
 class SummarizeCourseInput(BaseModel):
@@ -59,6 +63,11 @@ class VerifyGradeConsistencyInput(BaseModel):
     next_action: str
 
 
+class VerifyAnswerQualityInput(BaseModel):
+    answer: str = ""
+    evidence: list[EvidenceSnapshot] = Field(default_factory=list)
+
+
 def run_tool(operation: Callable[[], Any]) -> ToolResult:
     started = perf_counter()
     try:
@@ -67,8 +76,28 @@ def run_tool(operation: Callable[[], Any]) -> ToolResult:
         return ToolResult(ok=False, error=str(exc), elapsed_ms=int((perf_counter() - started) * 1000))
 
 
-def search_course_material(query: str, course_ids: list[str] | None = None, top_k: int = 5) -> ToolResult:
-    return run_tool(lambda: retrieval_pipeline.search(query, top_k=top_k, course_ids=course_ids or []))
+def search_course_material(
+    query: str,
+    course_ids: list[str] | None = None,
+    top_k: int = 5,
+    reading_context: ReadingContext | None = None,
+) -> ToolResult:
+    if reading_context is None:
+        return run_tool(
+            lambda: retrieval_pipeline.search(
+                query,
+                top_k=top_k,
+                course_ids=course_ids or [],
+            )
+        )
+    return run_tool(
+        lambda: retrieval_pipeline.search(
+            query,
+            top_k=top_k,
+            course_ids=course_ids or [],
+            reading_context=reading_context,
+        )
+    )
 
 
 def summarize_course(doc_id: str, mode: str = "key_points") -> ToolResult:
@@ -131,6 +160,10 @@ def verify_grade_consistency(score: float, next_action: str) -> ToolResult:
     return run_tool(lambda: critic_verify_grade_consistency(score=score, next_action=next_action))
 
 
+def verify_answer_quality(answer: str, evidence: list[EvidenceSnapshot]) -> ToolResult:
+    return run_tool(lambda: critic_verify_answer_quality(answer=answer, evidence=evidence))
+
+
 TOOL_REGISTRY = {
     "search_course_material": SearchCourseMaterialInput,
     "summarize_course": SummarizeCourseInput,
@@ -140,4 +173,5 @@ TOOL_REGISTRY = {
     "update_mastery": UpdateMasteryInput,
     "verify_evidence": VerifyEvidenceInput,
     "verify_grade_consistency": VerifyGradeConsistencyInput,
+    "verify_answer_quality": VerifyAnswerQualityInput,
 }

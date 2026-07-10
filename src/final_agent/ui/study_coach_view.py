@@ -135,3 +135,20 @@ def format_critic_warnings(warnings: list[dict]) -> list[str]:
     if not warnings:
         return ["No critic warnings."]
     return [f"`{warning.get('code', 'warning')}`: {warning.get('message', '')}" for warning in warnings]
+
+
+def format_quality_report(report: dict | None) -> list[str]:
+    if not report:
+        return ["No answer quality report yet."]
+    status = "needs revision" if report.get("needs_revision") else "grounded"
+    lines = [
+        f"Status: `{status}`",
+        f"Citations: {int(report.get('citation_count', 0))}",
+        f"Evidence items: {int(report.get('evidence_count', 0))}",
+        f"Uncited claims: {int(report.get('missing_citation_count', 0))}",
+        f"Unsupported citations: {int(report.get('unsupported_citation_count', 0))}",
+    ]
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.append("Warnings: " + ", ".join(f"`{warning}`" for warning in warnings))
+    return lines

@@ -112,3 +112,55 @@ def test_summary_truncates_without_stripping_prefix_whitespace():
     snapshots = build_evidence_snapshots(results)
 
     assert snapshots[0].summary == ("a" * 216) + " ..."
+
+
+def test_evidence_packet_keeps_top_five_ids_and_budgeted_top_three_snapshots():
+    from final_agent.agent.evidence import build_evidence_packet
+    from final_agent.agent.models import ContextBudget
+    from final_agent.schemas import Chunk, ScoredChunk
+
+    results = [
+        ScoredChunk(
+            chunk=Chunk(
+                chunk_id=f"chunk-{idx}",
+                doc_id="doc-a",
+                text=("evidence " * 80) + str(idx),
+            ),
+            score=1.0,
+            source="rrf",
+        )
+        for idx in range(6)
+    ]
+
+    packet = build_evidence_packet(
+        "review CI",
+        results,
+        budget=ContextBudget(max_evidence_items=3, max_summary_chars=120, max_material_chars=300),
+    )
+
+    assert packet.query == "review CI"
+    assert packet.retrieved_chunk_ids == ["chunk-0", "chunk-1", "chunk-2", "chunk-3", "chunk-4"]
+    assert [snapshot.chunk_id for snapshot in packet.evidence_snapshots] == ["chunk-0", "chunk-1", "chunk-2"]
+    assert all(len(snapshot.summary) <= 120 for snapshot in packet.evidence_snapshots)
+
+
+def test_budgeted_transient_materials_keep_full_text_temporary_but_capped():
+    from final_agent.agent.evidence import build_budgeted_transient_materials
+    from final_agent.agent.models import ContextBudget
+    from final_agent.schemas import Chunk, ScoredChunk
+
+    results = [
+        ScoredChunk(
+            chunk=Chunk(chunk_id="chunk-1", doc_id="doc-a", text="x" * 500),
+            score=1.0,
+            source="rrf",
+        )
+    ]
+
+    materials = build_budgeted_transient_materials(
+        results,
+        budget=ContextBudget(max_evidence_items=3, max_summary_chars=120, max_material_chars=200),
+    )
+
+    assert len(materials) == 1
+    assert len(materials[0]["text"]) <= 200

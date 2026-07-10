@@ -12,6 +12,7 @@ except ModuleNotFoundError:
     SentenceTransformer = None  # type: ignore[assignment]
 
 from final_agent.schemas import Chunk
+from final_agent.retrieval_context import chunk_index_text
 from final_agent.settings import Settings, load_settings
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,6 @@ def embed_chunks(
     """
     if not chunks:
         return []
-    texts = [c.text for c in chunks]
+    texts = [chunk_index_text(c) for c in chunks]
     vectors = embed_texts(texts, settings=settings)
     return list(zip(chunks, vectors))

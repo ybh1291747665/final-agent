@@ -41,15 +41,20 @@ body,
     linear-gradient(180deg, #fbfbfd 0%, var(--fa-bg) 36rem);
 }
 
-header[data-testid="stHeader"],
 div[data-testid="stToolbar"],
 div[data-testid="stDecoration"] {
   display: none;
 }
 
+header[data-testid="stHeader"] {
+  background: transparent;
+}
+
 .main .block-container,
 [data-testid="stMainBlockContainer"] {
-  max-width: 1180px;
+  max-width: min(1880px, calc(100vw - 3rem));
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
   padding-top: 2rem;
   padding-bottom: 7rem;
 }
@@ -62,6 +67,40 @@ section[data-testid="stSidebar"] {
 
 section[data-testid="stSidebar"] [data-testid="stSidebarContent"] {
   padding-top: 1.4rem;
+}
+
+section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] {
+  display: flex !important;
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 999999;
+  width: 38px !important;
+  height: 38px !important;
+}
+
+.fa-pdf-document-scroll {
+  width: 100%;
+  max-height: calc(100vh - 11.5rem);
+  overflow: auto;
+  padding: 0.65rem;
+  border: 1px solid var(--fa-border);
+  border-radius: 10px;
+  background: #eeeeef;
+}
+
+.fa-pdf-page {
+  margin: 0 auto 0.9rem;
+  padding: 0;
+}
+
+.fa-pdf-page:last-child {
+  margin-bottom: 0;
+}
+
+.fa-pdf-page img {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+  background: #ffffff;
 }
 
 h1, h2, h3, h4 {
@@ -92,24 +131,24 @@ div[data-testid="stWidgetLabel"] {
 
 .fa-hero {
   border: 1px solid var(--fa-border);
-  border-radius: 26px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--fa-shadow);
-  padding: 1.35rem 1.45rem;
-  margin: 0.2rem 0 1.25rem;
+  padding: 0.85rem 1rem;
+  margin: 0.1rem 0 1rem;
   backdrop-filter: blur(20px) saturate(170%);
 }
 
 .fa-eyebrow {
   color: var(--fa-blue);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  margin-bottom: 0.28rem;
+  margin-bottom: 0.16rem;
 }
 
 .fa-title {
   color: var(--fa-text);
-  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-size: clamp(1.65rem, 2.8vw, 2.45rem);
   line-height: 1.05;
   font-weight: 760;
   margin: 0;
@@ -118,9 +157,9 @@ div[data-testid="stWidgetLabel"] {
 
 .fa-subtitle {
   color: var(--fa-muted);
-  font-size: 1rem;
+  font-size: 0.92rem;
   max-width: 48rem;
-  margin: 0.75rem 0 1rem;
+  margin: 0.45rem 0 0.65rem;
 }
 
 .fa-status-row {
@@ -239,6 +278,11 @@ div[data-testid="stBottomBlockContainer"] {
   background: linear-gradient(180deg, rgba(245, 245, 247, 0), rgba(245, 245, 247, 0.96) 28%);
 }
 
+div[data-testid="stBottom"] {
+  left: 336px !important;
+  width: calc(100vw - 336px) !important;
+}
+
 div[data-testid="stChatInput"] textarea::placeholder {
   color: var(--fa-muted);
 }
@@ -266,10 +310,19 @@ code {
   background: #eef2ff;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .main .block-container {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  div[data-testid="stHorizontalBlock"] {
+    flex-direction: column;
+  }
+
+  div[data-testid="column"] {
+    width: 100% !important;
+    flex: 1 1 100% !important;
   }
 
   .fa-hero {

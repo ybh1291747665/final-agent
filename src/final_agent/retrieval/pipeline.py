@@ -7,6 +7,8 @@ from final_agent.retrieval.hybrid_searcher import hybrid_search
 from final_agent.retrieval.query_expander import expand_query
 from final_agent.retrieval.reranker import rerank
 from final_agent.schemas import ScoredChunk
+from final_agent.schemas import ReadingContext
+from final_agent.retrieval_context import apply_reading_context
 from final_agent.settings import Settings, load_settings
 
 
@@ -17,6 +19,7 @@ def search(
     top_k: int | None = None,
     expand: bool = True,
     course_ids: list[str] | None = None,
+    reading_context: ReadingContext | None = None,
 ) -> list[ScoredChunk]:
     """End-to-end retrieval: expand → hybrid → rerank → filter.
 
@@ -50,7 +53,7 @@ def search(
 
     reranked = rerank(query, candidates, settings=settings, top_k=top_k * 2)
     filtered = filter_results(reranked, settings=settings)
-    return filtered[:top_k]
+    return apply_reading_context(filtered, reading_context)[:top_k]
 
 
 def deep_search(
@@ -58,6 +61,7 @@ def deep_search(
     settings: Settings | None = None,
     *,
     course_ids: list[str] | None = None,
+    reading_context: ReadingContext | None = None,
 ) -> list[ScoredChunk]:
     """High-recall retrieval for review mode: more candidates, lower threshold, neighbor expansion.
 
@@ -128,4 +132,4 @@ def deep_search(
             heading_counts[hp] = heading_counts.get(hp, 0) + 1
             final.append(sc)
 
-    return final[:r.review_top_k]
+    return apply_reading_context(final, reading_context)[:r.review_top_k]

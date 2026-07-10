@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from final_agent.agent.graders import DeterministicGrader
+from final_agent.agent.evidence import build_evidence_snapshots
 from final_agent.agent.mastery import choose_learning_action
 from final_agent.agent.models import AgentState, QuizQuestion, StudyPlanStep, ToolTraceEntry
 from final_agent.agent.quiz_generators import DeterministicQuizGenerator
@@ -127,8 +128,22 @@ def run_study_turn(state: AgentState, repository=None, quiz_generator=None, grad
 
     if state.status in ("planning", "running"):
         state.status = "running"
-        search_result = search_course_material(state.learning_goal, state.course_ids, 5)
+        search_result = (
+            search_course_material(
+                state.learning_goal,
+                state.course_ids,
+                5,
+                state.reading_context,
+            )
+            if state.reading_context is not None
+            else search_course_material(state.learning_goal, state.course_ids, 5)
+        )
         _append_trace(state, "search_course_material", search_result.ok, search_result.elapsed_ms, search_result.error)
+        state.evidence_snapshots = (
+            build_evidence_snapshots(search_result.value, limit=3)
+            if search_result.ok
+            else []
+        )
         quiz_meta = None
         if hasattr(quiz_generator, "generate_with_meta"):
             quiz_result = run_tool(lambda: quiz_generator.generate_with_meta(state.learning_goal, state.course_ids, 1))

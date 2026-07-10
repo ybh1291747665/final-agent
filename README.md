@@ -18,6 +18,8 @@ Grader 和 Critic 协作完成“检索证据 -> 生成一道题 -> 学生作答
   Cross-Encoder 重排。
 - **可读引用**：问答和深度问答统一优先展示“文件名 + 页码”，不再把内部
   `chunk_id` 暴露给用户。
+- **PDF 联动阅读**：左侧问答、右侧原文，点击引用即可跳转到对应 PDF 页；
+  当前页和相邻页可作为整门课程检索的有界排序先验。
 - **多 Agent 协作**：Planner 规划步骤，Retriever 获取材料，Quiz Agent 出题，
   Grader 基于证据评分，Critic 检查流程质量。
 - **证据随状态流转**：`AgentState` 和 Session API 保存 Top-3 紧凑证据快照；
@@ -106,6 +108,8 @@ POST /sessions/{session_id}/messages
 GET  /sessions/{session_id}
 GET  /sessions/{session_id}/mastery
 GET  /sessions/{session_id}/trace
+GET  /documents/{doc_id}
+GET  /documents/{doc_id}/pages/{page_num}?zoom=125
 GET  /health
 ```
 
@@ -143,7 +147,8 @@ python -m final_agent.evaluation.runner --suite agent-final --data-dir data
 | 样本数 | 30 |
 | 任务完成率 | 100% |
 | 工具选择准确率 | 100% |
-| 引用落地率 | 66.7% |
+| 检索 Recall@5 | 100% |
+| Evidence Recall@3 | 100% |
 | 评分一致率 | 100% |
 | 错误率 | 0% |
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from final_agent.agent.models import EvidenceSnapshot
+from final_agent.agent.models import ContextBudget, EvidencePacket, EvidenceSnapshot
 from final_agent.schemas import ScoredChunk
 
 
@@ -21,7 +21,12 @@ def _summary(text: str, max_chars: int = 220) -> str:
     return compact[: max_chars - 3] + "..."
 
 
-def build_evidence_snapshots(results: Sequence[ScoredChunk], limit: int = 3) -> list[EvidenceSnapshot]:
+def build_evidence_snapshots(
+    results: Sequence[ScoredChunk],
+    limit: int = 3,
+    *,
+    max_summary_chars: int = 220,
+) -> list[EvidenceSnapshot]:
     snapshots: list[EvidenceSnapshot] = []
     for result in list(results)[:limit]:
         chunk = result.chunk
@@ -32,7 +37,7 @@ def build_evidence_snapshots(results: Sequence[ScoredChunk], limit: int = 3) -> 
                 source_path=_source_path(chunk),
                 page_num=chunk.page_num,
                 heading=_heading(chunk),
-                summary=_summary(chunk.text),
+                summary=_summary(chunk.text, max_summary_chars),
                 score=result.score,
                 retrieval_source=result.source,
             )
@@ -40,10 +45,16 @@ def build_evidence_snapshots(results: Sequence[ScoredChunk], limit: int = 3) -> 
     return snapshots
 
 
-def build_transient_materials(results: Sequence[ScoredChunk], limit: int = 3) -> list[dict]:
+def build_transient_materials(
+    results: Sequence[ScoredChunk],
+    limit: int = 3,
+    *,
+    max_material_chars: int | None = None,
+) -> list[dict]:
     materials: list[dict] = []
     for result in list(results)[:limit]:
         chunk = result.chunk
+        text = chunk.text if max_material_chars is None else _summary(chunk.text, max_material_chars)
         materials.append(
             {
                 "chunk_id": chunk.chunk_id,
@@ -51,12 +62,46 @@ def build_transient_materials(results: Sequence[ScoredChunk], limit: int = 3) ->
                 "source_path": _source_path(chunk),
                 "page_num": chunk.page_num,
                 "heading": _heading(chunk),
-                "text": chunk.text,
+                "text": text,
                 "score": result.score,
                 "retrieval_source": result.source,
             }
         )
     return materials
+
+
+def build_evidence_packet(
+    query: str,
+    results: Sequence[ScoredChunk],
+    *,
+    budget: ContextBudget | None = None,
+) -> EvidencePacket:
+    selected_budget = budget or ContextBudget()
+    retrieved = [result.chunk.chunk_id for result in list(results)[:5]]
+    snapshots = build_evidence_snapshots(
+        results,
+        limit=selected_budget.max_evidence_items,
+        max_summary_chars=selected_budget.max_summary_chars,
+    )
+    return EvidencePacket(
+        query=query,
+        retrieved_chunk_ids=retrieved,
+        evidence_snapshots=snapshots,
+        budget=selected_budget,
+    )
+
+
+def build_budgeted_transient_materials(
+    results: Sequence[ScoredChunk],
+    *,
+    budget: ContextBudget | None = None,
+) -> list[dict]:
+    selected_budget = budget or ContextBudget()
+    return build_transient_materials(
+        results,
+        limit=selected_budget.max_evidence_items,
+        max_material_chars=selected_budget.max_material_chars,
+    )
 
 
 def summarize_evidence_for_trace(snapshots: Sequence[EvidenceSnapshot]) -> str:

@@ -13,6 +13,7 @@ def test_default_tool_registry_contains_stage_one_tools():
         "search_course_material",
         "summarize_course",
         "update_mastery",
+        "verify_answer_quality",
         "verify_evidence",
         "verify_grade_consistency",
     ]

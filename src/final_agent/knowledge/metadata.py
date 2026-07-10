@@ -54,6 +54,7 @@ def register_document(
     course_id: str = "",
     bm25_snapshot_path: str = "",
     content_signature: str = "",
+    index_schema_version: int = 1,
 ) -> None:
     """Record a document in the metadata store."""
     if settings is None:
@@ -67,6 +68,7 @@ def register_document(
         "imported_at": datetime.now().isoformat(),
         "bm25_snapshot_path": bm25_snapshot_path,
         "content_signature": content_signature,
+        "index_schema_version": index_schema_version,
     }
     _save(settings)
     logger.info("Metadata: registered doc_id=%s (%d chunks)", doc_id, chunk_count)
